@@ -1,0 +1,94 @@
+<UserControl x:Class="FuelMind.Desktop.Views.LiveMonitoringView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:FuelMind.Desktop.Controls">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+    </UserControl.Resources>
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="28">
+            <TextBlock FontSize="28" FontWeight="SemiBold" Foreground="{DynamicResource AppForegroundBrush}" Text="Canlı İzleme" />
+            <Border Style="{StaticResource DashboardCardStyle}" Margin="0,24,0,0">
+                <StackPanel>
+                    <TextBlock FontWeight="SemiBold" Text="Bağlantı" />
+                    <StackPanel Margin="0,14,0,0" Orientation="Horizontal">
+                        <TextBlock VerticalAlignment="Center" Text="İstasyon ID:" />
+                        <TextBox Width="90" Margin="12,0,16,0" Padding="6,3" Text="{Binding StationId, UpdateSourceTrigger=PropertyChanged}" />
+                        <Button Padding="14,7" Command="{Binding ConnectCommand}" Content="Bağlan" />
+                        <Button Margin="10,0,0,0" Padding="14,7" Command="{Binding DisconnectCommand}" Content="Bağlantıyı Kes" />
+                    </StackPanel>
+                    <TextBlock Margin="0,12,0,0" Foreground="#FFB4B4" Text="{Binding LastError}" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+            <UniformGrid Margin="0,16,0,0" Columns="2">
+                <Border Style="{StaticResource DashboardCardStyle}"><StackPanel><TextBlock Foreground="#B8C7D1" Text="Bağlantı durumu" /><TextBlock Margin="0,6,0,0" FontSize="20" FontWeight="SemiBold" Text="{Binding ConnectionState}" /></StackPanel></Border>
+                <Border Style="{StaticResource DashboardCardStyle}"><StackPanel><TextBlock Foreground="#B8C7D1" Text="İstasyon" /><TextBlock Margin="0,6,0,0" FontSize="20" FontWeight="SemiBold" Text="{Binding ConnectedStationId, TargetNullValue=--}" /></StackPanel></Border>
+                <Border Style="{StaticResource DashboardCardStyle}"><StackPanel><TextBlock Foreground="#B8C7D1" Text="Son paket zamanı" /><TextBlock Margin="0,6,0,0" FontSize="20" FontWeight="SemiBold" Text="{Binding LastMessageAt, StringFormat={}{0:yyyy-MM-dd HH:mm:ss}, TargetNullValue=--}" /></StackPanel></Border>
+                <Border Style="{StaticResource DashboardCardStyle}"><StackPanel><TextBlock Foreground="#B8C7D1" Text="Son sequence" /><TextBlock Margin="0,6,0,0" FontSize="20" FontWeight="SemiBold" Text="{Binding LastSequence, TargetNullValue=--}" /></StackPanel></Border>
+                <Border Style="{StaticResource DashboardCardStyle}"><StackPanel><TextBlock Foreground="#B8C7D1" Text="Tank sayısı" /><TextBlock Margin="0,6,0,0" FontSize="20" FontWeight="SemiBold" Text="{Binding TankCount}" /></StackPanel></Border>
+                <Border Style="{StaticResource DashboardCardStyle}"><StackPanel><TextBlock Foreground="#B8C7D1" Text="Pompa sayısı" /><TextBlock Margin="0,6,0,0" FontSize="20" FontWeight="SemiBold" Text="{Binding PumpCount}" /></StackPanel></Border>
+            </UniformGrid>
+            <Border Margin="6,16,6,0" Padding="18" Background="#7A3D00" CornerRadius="6" Visibility="{Binding HasSequenceGap, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <StackPanel>
+                    <TextBlock FontWeight="SemiBold" Text="Sequence boşluğu algılandı" />
+                    <TextBlock Margin="0,6,0,0" Text="{Binding ExpectedSequence, StringFormat=Beklenen: {0}}" />
+                    <TextBlock Text="{Binding ReceivedSequence, StringFormat=Alınan: {0}}" />
+                </StackPanel>
+            </Border>
+            <StackPanel Margin="0,24,0,0">
+                <TextBlock FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource AppForegroundBrush}" Text="Canlı tanklar" />
+                <TextBlock Margin="0,10,0,0" Foreground="#B8C7D1" Text="Canlı tank verisi henüz mevcut değil.">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding TankCount}" Value="0">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+                <ItemsControl Margin="0,10,0,0" ItemsSource="{Binding Tanks}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <controls:TankControl Margin="6" Tank="{Binding}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+            <StackPanel Margin="0,24,0,0">
+                <TextBlock FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource AppForegroundBrush}" Text="Canlı pompalar" />
+                <TextBlock Margin="0,10,0,0" Foreground="#B8C7D1" Text="Canlı pompa verisi henüz mevcut değil.">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding PumpCount}" Value="0">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+                <ItemsControl Margin="0,10,0,0" ItemsSource="{Binding Pumps}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <controls:PumpControl Margin="6" Pump="{Binding}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

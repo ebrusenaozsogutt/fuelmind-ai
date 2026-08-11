@@ -37,6 +37,12 @@ class Delivery(Base):
     tank_id: Mapped[int] = mapped_column(
         ForeignKey("tanks.id", ondelete="RESTRICT"), index=True, nullable=False
     )
+    simulation_run_id: Mapped[int | None] = mapped_column(
+        ForeignKey("simulation_runs.id", ondelete="RESTRICT"), index=True, nullable=True
+    )
+    simulation_delivery_id: Mapped[str | None] = mapped_column(
+        String(150), unique=True, nullable=True
+    )
     delivery_timestamp: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), index=True, nullable=False
     )

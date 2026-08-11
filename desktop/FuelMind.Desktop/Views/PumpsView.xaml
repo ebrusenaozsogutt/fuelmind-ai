@@ -1,0 +1,94 @@
+<UserControl x:Class="FuelMind.Desktop.Views.PumpsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:FuelMind.Desktop.Controls"
+             xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.WPF;assembly=LiveChartsCore.SkiaSharpView.WPF">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="28">
+            <TextBlock FontSize="28"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource AppForegroundBrush}"
+                       Text="Pompalar" />
+            <TextBlock Margin="0,16,0,0"
+                       Foreground="#B8C7D1"
+                       Text="Canlı pompa verisi bekleniyor.">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding PumpCount}" Value="0">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+            <Border Margin="0,20,0,0"
+                    Padding="18"
+                    Background="{DynamicResource CardBrush}"
+                    BorderBrush="#3B5362"
+                    BorderThickness="1"
+                    CornerRadius="6">
+                <StackPanel>
+                    <TextBlock FontSize="20"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource AppForegroundBrush}"
+                               Text="Live pump metric" />
+                    <Grid Margin="0,14,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="260" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Foreground="#B8C7D1" Text="Pump selection" />
+                            <ComboBox Margin="0,6,16,0"
+                                      ItemsSource="{Binding Pumps}"
+                                      SelectedValue="{Binding SelectedPumpId, Mode=TwoWay}"
+                                      SelectedValuePath="PumpId">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding PumpId, StringFormat=Pump ID: {0}}" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <TextBlock Margin="0,16,0,0" Foreground="#B8C7D1" Text="Metric" />
+                            <ComboBox Margin="0,6,16,0"
+                                      DisplayMemberPath="DisplayName"
+                                      ItemsSource="{Binding MetricOptions}"
+                                      SelectedValue="{Binding SelectedMetric, Mode=TwoWay}"
+                                      SelectedValuePath="Metric" />
+                            <TextBlock Margin="0,16,0,0" Foreground="#B8C7D1" Text="Selected pump" />
+                            <TextBlock FontWeight="SemiBold" Text="{Binding SelectedPumpDisplay}" />
+                            <TextBlock Margin="0,10,0,0" Foreground="#B8C7D1" Text="Current value" />
+                            <TextBlock Text="{Binding CurrentMetricValue, StringFormat={}{0:N1}, TargetNullValue=--}" />
+                        </StackPanel>
+                        <lvc:CartesianChart Grid.Column="1"
+                                            Height="280"
+                                            Background="#101820"
+                                            LegendPosition="Top"
+                                            Series="{Binding Series}"
+                                            XAxes="{Binding XAxes}"
+                                            YAxes="{Binding YAxes}"
+                                            ZoomMode="None" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+            <ItemsControl Margin="0,16,0,0" ItemsSource="{Binding Pumps}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Button Padding="0" Background="Transparent" BorderThickness="0"
+                                Command="{Binding DataContext.SelectPumpCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                CommandParameter="{Binding PumpId}">
+                            <controls:PumpControl Margin="6" Pump="{Binding}" />
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

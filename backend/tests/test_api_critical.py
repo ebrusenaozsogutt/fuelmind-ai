@@ -146,6 +146,28 @@ def test_operator_cannot_access_admin_endpoint() -> None:
     assert response.status_code == 403
 
 
+def test_dataset_endpoint_requires_admin_authentication() -> None:
+    def deny_admin() -> None:
+        raise HTTPException(status_code=403, detail="Insufficient permissions.")
+
+    payload = {
+        "station_id": 2,
+        "days": 30,
+        "simulation_start_time": "2026-05-01T00:00:00+00:00",
+        "simulation_step_seconds": 300,
+        "random_seed": 42,
+    }
+    app.dependency_overrides[get_db] = lambda: object()
+    app.dependency_overrides[require_admin] = deny_admin
+    with TestClient(app) as client:
+        operator_response = client.post("/api/simulations/datasets/generate", json=payload)
+    app.dependency_overrides.clear()
+    with TestClient(app) as client:
+        anonymous_response = client.post("/api/simulations/datasets/generate", json=payload)
+    assert operator_response.status_code == 403
+    assert anonymous_response.status_code == 401
+
+
 def test_fuel_type_creation_endpoint_uses_service(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

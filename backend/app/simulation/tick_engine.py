@@ -8,6 +8,7 @@ from app.simulation.config import SimulationConfig
 from app.simulation.delivery_generator import DeliveryGenerator
 from app.simulation.pump_generator import PumpGenerator
 from app.simulation.sales_generator import SalesGenerator
+from app.simulation.scenario_engine import ScenarioEngine
 from app.simulation.state import StationSimulationState
 from app.simulation.tank_generator import TankGenerator
 from app.simulation.tick_result import SimulationTickEvent, SimulationTickResult
@@ -31,6 +32,7 @@ class TickEngine:
         unit_prices_by_fuel: dict[str, float],
         base_sale_probability: float = 0.3,
         automatic_delivery_probability: float = 0.0,
+        scenario_engine: ScenarioEngine | None = None,
     ) -> None:
         (
             self.config,
@@ -57,6 +59,7 @@ class TickEngine:
         self.unit_prices_by_fuel = dict(unit_prices_by_fuel)
         self.base_sale_probability = base_sale_probability
         self.automatic_delivery_probability = automatic_delivery_probability
+        self.scenario_engine = scenario_engine or ScenarioEngine()
         for key, code in self.fuel_codes_by_id.items():
             if key <= 0 or not code.strip() or code not in self.unit_prices_by_fuel:
                 raise ValueError("Fuel mapping or price is invalid.")
@@ -78,6 +81,15 @@ class TickEngine:
         sequence = station_state.next_sequence()
         elapsed = self.config.simulation_step_seconds * self.clock.speed_multiplier
         events = []
+        active_scenarios = self.scenario_engine.active(now)
+        # Normal values are generated first. Scenario phases then follow the public order.
+        tanks = self.tank_generator.update_tanks(
+            tanks=[station_state.tanks[x] for x in sorted(station_state.tanks)], elapsed_seconds=elapsed
+        )
+        pumps = self.pump_generator.update_pumps(
+            pumps=[station_state.pumps[x] for x in sorted(station_state.pumps)], elapsed_seconds=elapsed
+        )
+        demand_multiplier = self.scenario_engine.demand_multiplier(active_scenarios)
         for pump_id in sorted(station_state.pumps):
             pump = station_state.pumps[pump_id]
             code = self.fuel_codes_by_id.get(pump.fuel_type_id)
@@ -90,6 +102,7 @@ class TickEngine:
                 base_probability=self.base_sale_probability,
                 fuel_code=code,
                 unit_price=self.unit_prices_by_fuel[code],
+                scenario_multiplier=demand_multiplier,
             )
             if sale:
                 events.append(
@@ -133,14 +146,8 @@ class TickEngine:
                     {"delivery_id": item.delivery_id},
                 )
             )
-        tanks = self.tank_generator.update_tanks(
-            tanks=[station_state.tanks[x] for x in sorted(station_state.tanks)],
-            elapsed_seconds=elapsed,
-        )
-        pumps = self.pump_generator.update_pumps(
-            pumps=[station_state.pumps[x] for x in sorted(station_state.pumps)],
-            elapsed_seconds=elapsed,
-        )
+        self.scenario_engine.apply_equipment(station_state, active_scenarios, elapsed)
+        self.scenario_engine.apply_sensor_and_physical(station_state, active_scenarios, elapsed)
         result = SimulationTickResult(
             station_state.station_id,
             now,
@@ -151,6 +158,7 @@ class TickEngine:
             completed,
             deliveries,
             events,
+            self.scenario_engine.public(active_scenarios),
         )
         self.validator.validate_tick_result(result, station_state)
         self.validator.validate_station_state(station_state)

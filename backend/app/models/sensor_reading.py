@@ -14,13 +14,14 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    JSON,
     Numeric,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 from app.utils.datetime_utils import utc_now
-from app.utils.enums import AnomalyType
+from app.utils.enums import AnomalyType, SourceType
 
 if TYPE_CHECKING:
     from app.models.pump import Pump
@@ -87,20 +88,31 @@ class SensorReading(Base):
     pump_id: Mapped[int | None] = mapped_column(
         ForeignKey("pumps.id", ondelete="RESTRICT"), index=True, nullable=True
     )
+    simulation_run_id: Mapped[int | None] = mapped_column(
+        ForeignKey("simulation_runs.id", ondelete="RESTRICT"), index=True, nullable=True
+    )
+    sequence_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
     reading_timestamp: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), index=True, nullable=False
     )
     tank_level: Mapped[Decimal | None] = mapped_column(Numeric(14, 3), nullable=True)
+    true_tank_level: Mapped[Decimal | None] = mapped_column(
+        Numeric(14, 3), nullable=True
+    )
     temperature: Mapped[Decimal | None] = mapped_column(Numeric(6, 2), nullable=True)
     water_level: Mapped[Decimal | None] = mapped_column(Numeric(14, 3), nullable=True)
     flow_rate: Mapped[Decimal | None] = mapped_column(Numeric(12, 3), nullable=True)
     pressure: Mapped[Decimal | None] = mapped_column(Numeric(12, 3), nullable=True)
     motor_current: Mapped[Decimal | None] = mapped_column(Numeric(12, 3), nullable=True)
+    pump_temperature: Mapped[Decimal | None] = mapped_column(
+        Numeric(6, 2), nullable=True
+    )
     error_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     working_duration: Mapped[Decimal | None] = mapped_column(
         Numeric(14, 2), nullable=True
     )
     data_quality_score: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False)
+    quality_flags_json: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     is_anomaly: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     anomaly_score: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
     anomaly_type: Mapped[AnomalyType | None] = mapped_column(
@@ -112,6 +124,17 @@ class SensorReading(Base):
             values_callable=lambda enum_class: [member.value for member in enum_class],
         ),
         nullable=True,
+    )
+    source_type: Mapped[SourceType] = mapped_column(
+        SqlEnum(
+            SourceType,
+            name="source_type",
+            native_enum=True,
+            create_constraint=True,
+            values_callable=lambda enum_class: [member.value for member in enum_class],
+        ),
+        default=SourceType.MANUAL,
+        nullable=False,
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, nullable=False

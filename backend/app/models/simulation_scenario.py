@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import CheckConstraint, DateTime, Enum as SqlEnum, Integer, String
+from sqlalchemy import CheckConstraint, DateTime, Enum as SqlEnum, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -23,6 +23,9 @@ class SimulationScenario(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    simulation_run_id: Mapped[int | None] = mapped_column(
+        ForeignKey("simulation_runs.id", ondelete="CASCADE"), index=True, nullable=True
+    )
     name: Mapped[str] = mapped_column(String(200), index=True, nullable=False)
     scenario_type: Mapped[str] = mapped_column(String(100), index=True, nullable=False)
     target_type: Mapped[SimulationTargetType] = mapped_column(

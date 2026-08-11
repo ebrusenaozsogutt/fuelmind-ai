@@ -18,6 +18,8 @@ if TYPE_CHECKING:
     from app.models.pump import Pump
     from app.models.sale import Sale
     from app.models.sensor_reading import SensorReading
+    from app.models.simulation_event import SimulationEvent
+    from app.models.simulation_run import SimulationRun
     from app.models.tank import Tank
 
 
@@ -48,6 +50,10 @@ class Station(Base):
     )
     sales: Mapped[list[Sale]] = relationship(back_populates="station")
     sensor_readings: Mapped[list[SensorReading]] = relationship(
+        back_populates="station"
+    )
+    simulation_runs: Mapped[list[SimulationRun]] = relationship(back_populates="station")
+    simulation_events: Mapped[list[SimulationEvent]] = relationship(
         back_populates="station"
     )
     alarms: Mapped[list[Alarm]] = relationship(back_populates="station")

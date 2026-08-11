@@ -10,6 +10,8 @@ from app.models.pump import Pump
 from app.models.sale import Sale
 from app.models.sensor_reading import SensorReading
 from app.models.simulation_scenario import SimulationScenario
+from app.models.simulation_event import SimulationEvent
+from app.models.simulation_run import SimulationRun
 from app.models.station import Station
 from app.models.tank import Tank
 from app.models.user import User
@@ -25,6 +27,8 @@ __all__ = [
     "Sale",
     "SensorReading",
     "SimulationScenario",
+    "SimulationEvent",
+    "SimulationRun",
     "Station",
     "Tank",
     "User",

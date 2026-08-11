@@ -14,6 +14,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     Numeric,
+    String,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -54,6 +55,12 @@ class Sale(Base):
     )
     pump_id: Mapped[int] = mapped_column(
         ForeignKey("pumps.id", ondelete="RESTRICT"), index=True, nullable=False
+    )
+    simulation_run_id: Mapped[int | None] = mapped_column(
+        ForeignKey("simulation_runs.id", ondelete="RESTRICT"), index=True, nullable=True
+    )
+    simulation_sale_id: Mapped[str | None] = mapped_column(
+        String(100), unique=True, nullable=True
     )
     fuel_type_id: Mapped[int] = mapped_column(
         ForeignKey("fuel_types.id", ondelete="RESTRICT"), index=True, nullable=False

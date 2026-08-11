@@ -63,14 +63,45 @@ class RecommendationStatus(str, Enum):
 
 class SimulationStatus(str, Enum):
     CREATED = "CREATED"
+    STARTING = "STARTING"
     RUNNING = "RUNNING"
     PAUSED = "PAUSED"
+    STOPPING = "STOPPING"
     COMPLETED = "COMPLETED"
     STOPPED = "STOPPED"
     FAILED = "FAILED"
+
+
+class SimulationMode(str, Enum):
+    """Persisted execution mode for a simulation run."""
+
+    REALTIME = "REALTIME"
+    ACCELERATED = "ACCELERATED"
+    DATASET = "DATASET"
 
 
 class SimulationTargetType(str, Enum):
     STATION = "STATION"
     TANK = "TANK"
     PUMP = "PUMP"
+
+
+class ScenarioType(str, Enum):
+    """Supported, deliberately bounded demo scenarios."""
+
+    FLOW_DROP = "FLOW_DROP"
+    HIGH_MOTOR_CURRENT = "HIGH_MOTOR_CURRENT"
+    TANK_LEAK = "TANK_LEAK"
+    SENSOR_STUCK = "SENSOR_STUCK"
+    SENSOR_SPIKE = "SENSOR_SPIKE"
+    WATER_LEVEL_RISE = "WATER_LEVEL_RISE"
+    DEMAND_SURGE = "DEMAND_SURGE"
+
+
+class SourceType(str, Enum):
+    """Origin of persisted sensor data."""
+
+    SIMULATION = "SIMULATION"
+    CSV_IMPORT = "CSV_IMPORT"
+    REAL_DEVICE = "REAL_DEVICE"
+    MANUAL = "MANUAL"

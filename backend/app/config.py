@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     ENABLE_DEMO_USERS: bool = False
     DEMO_ADMIN_PASSWORD: str | None = None
     DEMO_OPERATOR_PASSWORD: str | None = None
+    LIVE_WS_HEARTBEAT_SECONDS: float = 20.0
 
     model_config = SettingsConfigDict(
         env_file=".env",

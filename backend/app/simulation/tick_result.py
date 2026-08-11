@@ -46,6 +46,8 @@ class SimulationTickResult:
     completed_sales: list[ActiveSaleState] = field(default_factory=list)
     deliveries: list[DeliveryResult] = field(default_factory=list)
     events: list[SimulationTickEvent] = field(default_factory=list)
+    active_scenarios: list[dict[str, object]] = field(default_factory=list)
+    created_alarms: list[object] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if self.station_id <= 0 or self.sequence_number <= 0:
