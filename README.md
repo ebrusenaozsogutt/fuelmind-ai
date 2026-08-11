@@ -268,3 +268,7 @@ A future Mepsan device or sensor integration can be introduced through a data-ad
 ## Academic Context
 
 FuelMind AI is an industrial decision-support and learning prototype. It is not represented as a production deployment or an official commercial system. No license is currently declared in this repository.
+
+## Developer
+
+Developed by **Ebru Sena Özsöğüt**.
