@@ -1,0 +1,440 @@
+<UserControl x:Class="FuelMind.Desktop.Views.ModelManagementView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             MinWidth="520">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+        <Style x:Key="RegistryBadgeStyle" TargetType="Border">
+            <Setter Property="Padding" Value="8,3" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Background" Value="{DynamicResource InactiveBrush}" />
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource AppForegroundBrush}" />
+        </Style>
+        <Style x:Key="RegistryLabelStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource MutedForegroundBrush}" />
+            <Setter Property="Margin" Value="0,0,0,3" />
+        </Style>
+        <Style x:Key="DetailGroupTitleStyle" TargetType="TextBlock">
+            <Setter Property="Margin" Value="0,18,0,8" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+        </Style>
+        <Style x:Key="DetailValueStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+    </UserControl.Resources>
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="24">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock FontSize="28" FontWeight="SemiBold" Text="Yapay Zekâ Model Yönetimi" />
+                    <TextBlock Margin="0,5,0,0"
+                               Foreground="{DynamicResource MutedForegroundBrush}"
+                               Text="Isolation Forest model yaşam döngüsü ve artifact yönetimi" />
+                    <TextBlock Margin="0,5,0,0"
+                               Foreground="{DynamicResource MutedForegroundBrush}"
+                               Text="{Binding LastRefreshText}" />
+                </StackPanel>
+                <WrapPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Top">
+                    <Button Margin="0,0,8,0" Command="{Binding RefreshCommand}" Content="Yenile" />
+                    <Button Command="{Binding TrainModelCommand}"
+                            Content="Yeni Model Eğit"
+                            Visibility="{Binding CanManageModels, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                </WrapPanel>
+            </Grid>
+
+            <Border Margin="0,18,0,0" Style="{StaticResource DashboardCardStyle}">
+                <StackPanel>
+                    <TextBlock FontSize="16" FontWeight="SemiBold" Text="MODEL YÖNETİMİ NEDEN VAR?" />
+                    <TextBlock Margin="0,7,0,0"
+                               Foreground="{DynamicResource MutedForegroundBrush}"
+                               Text="Model Yönetimi, FuelMind'in canlı anomali analizinde hangi yapay zekâ modelini kullanacağını yönetir. Yeni sensör verileri biriktikçe yeni model sürümleri eğitilebilir. Yeni model doğrulandıktan sonra aktif hale getirilebilir; eski sürümler gerektiğinde geri dönüş için saklanır."
+                               TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
+            <WrapPanel Margin="-6,12,-6,0">
+                <Border MinWidth="280" Style="{StaticResource DashboardCardStyle}">
+                    <StackPanel>
+                        <TextBlock Foreground="{DynamicResource MutedForegroundBrush}" Text="AKTİF ANOMALİ MODELİ" />
+                        <TextBlock Margin="0,9,0,0"
+                                   FontSize="18"
+                                   FontWeight="SemiBold"
+                                   Text="{Binding ActiveModel.ModelFriendlyName, TargetNullValue=Aktif model bulunmuyor}" />
+                        <WrapPanel Margin="0,8,0,0">
+                            <Border>
+                                <Border.Style>
+                                    <Style TargetType="Border" BasedOn="{StaticResource RegistryBadgeStyle}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasActiveModel}" Value="True">
+                                                <Setter Property="Background" Value="{DynamicResource SuccessBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <TextBlock Text="{Binding ActiveModel.StatusText, TargetNullValue=YOK}" />
+                            </Border>
+                            <TextBlock Margin="10,3,0,0"
+                                       Foreground="{DynamicResource MutedForegroundBrush}"
+                                       Text="{Binding ActiveModel.Version, StringFormat=Sürüm: {0}, TargetNullValue=Sürüm: —}" />
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border MinWidth="390" Style="{StaticResource DashboardCardStyle}">
+                    <StackPanel>
+                        <TextBlock Foreground="{DynamicResource MutedForegroundBrush}" Text="AKTİF MODEL VERİ DURUMU" />
+                        <TextBlock Margin="0,9,0,0"
+                                   Text="{Binding ActiveModel.TrainingEndDate, StringFormat=Modelin eğitim sonu: {0:dd.MM.yyyy}, TargetNullValue=Modelin eğitim sonu: —}" />
+                        <TextBlock Margin="0,4,0,0"
+                                   Text="{Binding ActiveModel.LatestSensorReadingText, StringFormat=Son sensör verisi: {0}, TargetNullValue=Son sensör verisi: —}" />
+                        <TextBlock Margin="0,8,0,0"
+                                   Foreground="{DynamicResource WarningForegroundBrush}"
+                                   Text="{Binding ActiveModel.NewSensorDataText, TargetNullValue=Aktif model verisi bulunamadı.}"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+            </WrapPanel>
+
+            <Border Margin="0,12,0,0"
+                    Padding="12"
+                    Background="{DynamicResource CardBrush}"
+                    BorderBrush="{DynamicResource SuccessBrush}"
+                    BorderThickness="1"
+                    CornerRadius="5"
+                    Visibility="{Binding HasSuccess, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <TextBlock Foreground="{DynamicResource SuccessForegroundBrush}"
+                           Text="{Binding SuccessMessage}"
+                           TextWrapping="Wrap" />
+            </Border>
+            <Border Margin="0,12,0,0"
+                    Padding="12"
+                    Background="{DynamicResource CardBrush}"
+                    BorderBrush="{DynamicResource DangerBrush}"
+                    BorderThickness="1"
+                    CornerRadius="5"
+                    Visibility="{Binding HasError, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <TextBlock Foreground="{DynamicResource DangerForegroundBrush}"
+                           Text="{Binding ErrorMessage}"
+                           TextWrapping="Wrap" />
+            </Border>
+            <TextBlock Margin="0,12,0,0"
+                       Foreground="{DynamicResource AccentBrush}"
+                       Text="Model işlemi sürüyor…"
+                       Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+            <Border Margin="0,18,0,0"
+                    Padding="18"
+                    Background="{DynamicResource CardBrush}"
+                    BorderBrush="{DynamicResource ControlBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Visibility="{Binding CanManageModels, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <StackPanel>
+                    <TextBlock FontSize="18" FontWeight="SemiBold" Text="Yeni anomaly model eğit" />
+                    <TextBlock Margin="0,5,0,0"
+                               Foreground="{DynamicResource MutedForegroundBrush}"
+                               Text="Yeni sensör verileri mevcut modeli otomatik değiştirmez. Eğitim tamamlandığında yeni sürüm varsayılan olarak INACTIVE oluşturulur."
+                               TextWrapping="Wrap" />
+                    <WrapPanel Margin="0,14,0,0">
+                        <StackPanel Margin="0,0,14,10">
+                            <TextBlock Style="{StaticResource RegistryLabelStyle}" Text="İstasyon" />
+                            <ComboBox Width="210"
+                                      ItemsSource="{Binding Stations}"
+                                      SelectedItem="{Binding SelectedStation}"
+                                      DisplayMemberPath="Name" />
+                        </StackPanel>
+                        <StackPanel Margin="0,0,14,10">
+                            <TextBlock Style="{StaticResource RegistryLabelStyle}" Text="Model ailesi" />
+                            <ComboBox Width="125"
+                                      ItemsSource="{Binding ModelFamilies}"
+                                      SelectedItem="{Binding SelectedModelFamily}" />
+                        </StackPanel>
+                        <StackPanel Margin="0,0,14,10">
+                            <TextBlock Style="{StaticResource RegistryLabelStyle}" Text="Başlangıç (opsiyonel)" />
+                            <DatePicker Width="160" SelectedDate="{Binding TrainingStartDate}" />
+                        </StackPanel>
+                        <StackPanel Margin="0,0,14,10">
+                            <TextBlock Style="{StaticResource RegistryLabelStyle}" Text="Bitiş (opsiyonel)" />
+                            <DatePicker Width="160" SelectedDate="{Binding TrainingEndDate}" />
+                        </StackPanel>
+                        <StackPanel Margin="0,0,14,10">
+                            <TextBlock Style="{StaticResource RegistryLabelStyle}" Text="Kaynak" />
+                            <ComboBox Width="150"
+                                      ItemsSource="{Binding SourceTypes}"
+                                      SelectedItem="{Binding SelectedSourceType}" />
+                        </StackPanel>
+                        <Button Margin="0,18,0,10"
+                                VerticalAlignment="Top"
+                                Command="{Binding TrainModelCommand}"
+                                Content="Eğitimi Başlat" />
+                    </WrapPanel>
+                    <TextBlock Foreground="{DynamicResource MutedForegroundBrush}"
+                               Text="Isolation Forest için accuracy, MAE, RMSE veya MAPE kullanılmaz. Yalnızca gerçek anomali diagnostic değerleri gösterilir."
+                               TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
+            <TextBlock Margin="0,22,0,10" FontSize="19" FontWeight="SemiBold" Text="Model Registry" />
+            <Grid>
+                <DataGrid Height="285"
+                          ItemsSource="{Binding Models}"
+                          SelectedItem="{Binding SelectedModel}"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="True"
+                          CanUserAddRows="False"
+                          CanUserDeleteRows="False"
+                          HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Auto">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Model" Binding="{Binding ModelFriendlyName}" Width="150" />
+                        <DataGridTextColumn Header="Hedef" Binding="{Binding TargetText}" Width="125" />
+                        <DataGridTextColumn Header="Sürüm" Binding="{Binding Version}" Width="75" />
+                        <DataGridTextColumn Header="Eğitim Satırı" Binding="{Binding TrainingRowCount, StringFormat=N0}" Width="105" />
+                        <DataGridTextColumn Header="Feature" Binding="{Binding FeatureCountText}" Width="70" />
+                        <DataGridTextColumn Header="Eğitim Tarihi" Binding="{Binding TrainedAtText}" Width="130" />
+                        <DataGridTemplateColumn Header="Durum" Width="90">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Border HorizontalAlignment="Left">
+                                        <Border.Style>
+                                            <Style TargetType="Border" BasedOn="{StaticResource RegistryBadgeStyle}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                        <Setter Property="Background" Value="{DynamicResource SuccessBrush}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <TextBlock Text="{Binding StatusText}"
+                                                   ToolTip="ACTIVE: Canlı anomaly analizinde şu anda kullanılan model." />
+                                    </Border>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Artifact" Width="85">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Border HorizontalAlignment="Left">
+                                        <Border.Style>
+                                            <Style TargetType="Border" BasedOn="{StaticResource RegistryBadgeStyle}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding ArtifactAvailable}" Value="True">
+                                                        <Setter Property="Background" Value="{DynamicResource SuccessBrush}" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding ArtifactAvailable}" Value="False">
+                                                        <Setter Property="Background" Value="{DynamicResource DangerBrush}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <TextBlock Text="{Binding ArtifactStatusText}"
+                                                   ToolTip="READY: Model dosyası mevcut ve inference için yüklenebilir." />
+                                    </Border>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="İşlem" Width="100">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button IsEnabled="{Binding CanActivate}"
+                                            Command="{Binding DataContext.ActivateModelCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource DarkButtonStyle}">
+                                                <Setter Property="Padding" Value="9,4" />
+                                                <Setter Property="Content" Value="Aktif Et" />
+                                                <Setter Property="Visibility"
+                                                        Value="{Binding DataContext.CanManageModels, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                        <Setter Property="Content" Value="Aktif" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+                <Border Padding="24"
+                        Background="{DynamicResource CardBrush}"
+                        CornerRadius="6"
+                        IsHitTestVisible="False">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsEmpty}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock FontSize="18" FontWeight="SemiBold" Text="Henüz eğitilmiş anomali modeli bulunmuyor." />
+                        <TextBlock Margin="0,7,0,0"
+                                   Foreground="{DynamicResource MutedForegroundBrush}"
+                                   Text="ADMIN kullanıcısı yukarıdaki formdan ilk modeli eğitebilir." />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <Border Margin="0,18,0,0"
+                    Padding="18"
+                    Background="{DynamicResource CardBrush}"
+                    BorderBrush="{DynamicResource ControlBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="6">
+                <StackPanel>
+                    <TextBlock FontSize="18" FontWeight="SemiBold" Text="{Binding SelectedModelTitle}" />
+                    <TextBlock Margin="0,4,0,0"
+                               Foreground="{DynamicResource MutedForegroundBrush}"
+                               Text="MODEL ÖZETİ" />
+
+                    <TextBlock Style="{StaticResource DetailGroupTitleStyle}" Text="GENEL" />
+                    <WrapPanel>
+                        <StackPanel Width="145" Margin="0,0,14,8">
+                            <TextBlock Style="{StaticResource RegistryLabelStyle}" Text="Model ID" />
+                            <TextBlock Style="{StaticResource DetailValueStyle}" Text="{Binding SelectedModel.Id, TargetNullValue=—}" />
+                        </StackPanel>
+                        <StackPanel Width="170" Margin="0,0,14,8">
+                            <TextBlock Style="{StaticResource RegistryLabelStyle}" Text="Model" />
+                            <TextBlock Style="{StaticResource DetailValueStyle}" Text="{Binding SelectedModel.ModelFriendlyName, TargetNullValue=—}" />
+                        </StackPanel>
+                        <StackPanel Width="170" Margin="0,0,14,8">
+                            <TextBlock Style="{StaticResource RegistryLabelStyle}" Text="Hedef" />
+                            <TextBlock Style="{StaticResource DetailValueStyle}" Text="{Binding SelectedModel.TargetText, TargetNullValue=—}" />
+                        </StackPanel>
+                        <StackPanel Width="110" Margin="0,0,14,8">
+                            <TextBlock Style="{StaticResource RegistryLabelStyle}" Text="Durum" />
+                            <TextBlock Style="{StaticResource DetailValueStyle}" Text="{Binding SelectedModel.StatusText, TargetNullValue=—}" />
+                        </StackPanel>
+                    </WrapPanel>
+
+                    <TextBlock Style="{StaticResource DetailGroupTitleStyle}" Text="EĞİTİM" />
+                    <WrapPanel>
+                        <StackPanel Width="220" Margin="0,0,14,8"
+                                    ToolTip="Modelin normal pompa davranışını öğrenirken kullandığı temiz sensör kayıtlarının sayısı.">
+                            <TextBlock Style="{StaticResource RegistryLabelStyle}" Text="Eğitim verisi" />
+                            <TextBlock Style="{StaticResource DetailValueStyle}" Text="{Binding SelectedModel.TrainingRowsText, TargetNullValue=—}" />
+                        </StackPanel>
+                        <StackPanel Width="205" Margin="0,0,14,8"
+                                    ToolTip="Modelin karar verirken kullandığı debi, basınç, motor akımı ve davranışsal değişim gibi özelliklerin sayısı.">
+                            <TextBlock Style="{StaticResource RegistryLabelStyle}" Text="Feature" />
+                            <TextBlock Style="{StaticResource DetailValueStyle}" Text="{Binding SelectedModel.FeaturesSummaryText, TargetNullValue=—}" />
+                        </StackPanel>
+                        <StackPanel Width="220" Margin="0,0,14,8">
+                            <TextBlock Style="{StaticResource RegistryLabelStyle}" Text="Eğitim dönemi" />
+                            <TextBlock Style="{StaticResource DetailValueStyle}" Text="{Binding SelectedModel.TrainingRangeText, TargetNullValue=—}" />
+                        </StackPanel>
+                    </WrapPanel>
+
+                    <TextBlock Style="{StaticResource DetailGroupTitleStyle}" Text="DAVRANIŞ VE DOĞRULAMA" />
+                    <WrapPanel>
+                        <StackPanel Width="210" Margin="0,0,14,8">
+                            <TextBlock Style="{StaticResource RegistryLabelStyle}" Text="Training outlier rate" />
+                            <TextBlock Style="{StaticResource DetailValueStyle}" Text="{Binding SelectedModel.TrainingOutlierText, TargetNullValue=Henüz doğrulanmadı}" />
+                        </StackPanel>
+                        <StackPanel Width="220" Margin="0,0,14,8">
+                            <TextBlock Style="{StaticResource RegistryLabelStyle}" Text="Normal veri yanlış uyarı" />
+                            <TextBlock Style="{StaticResource DetailValueStyle}" Text="{Binding SelectedModel.NormalFalsePositiveText, TargetNullValue=Henüz doğrulanmadı}" />
+                        </StackPanel>
+                        <StackPanel Width="190" Margin="0,0,14,8">
+                            <TextBlock Style="{StaticResource RegistryLabelStyle}" Text="Senaryo yakalama" />
+                            <TextBlock Style="{StaticResource DetailValueStyle}" Text="{Binding SelectedModel.ScenarioDetectionText, TargetNullValue=Henüz doğrulanmadı}" />
+                        </StackPanel>
+                        <StackPanel Width="180" Margin="0,0,14,8">
+                            <TextBlock Style="{StaticResource RegistryLabelStyle}" Text="Son doğrulama" />
+                            <TextBlock Style="{StaticResource DetailValueStyle}" Text="{Binding SelectedModel.ValidationStatusText, TargetNullValue=Henüz doğrulanmadı}" />
+                        </StackPanel>
+                    </WrapPanel>
+
+                    <TextBlock Style="{StaticResource DetailGroupTitleStyle}" Text="VERİ GÜNCELLİĞİ" />
+                    <WrapPanel>
+                        <StackPanel Width="220" Margin="0,0,14,8">
+                            <TextBlock Style="{StaticResource RegistryLabelStyle}" Text="Son sensör verisi" />
+                            <TextBlock Style="{StaticResource DetailValueStyle}" Text="{Binding SelectedModel.LatestSensorReadingText, TargetNullValue=—}" />
+                        </StackPanel>
+                        <StackPanel MinWidth="330" Margin="0,0,14,8">
+                            <TextBlock Style="{StaticResource RegistryLabelStyle}" Text="Eğitimden sonra gelen veri" />
+                            <TextBlock Foreground="{DynamicResource WarningForegroundBrush}"
+                                       Text="{Binding SelectedModel.NewSensorDataText, TargetNullValue=—}"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </WrapPanel>
+
+                    <TextBlock Style="{StaticResource DetailGroupTitleStyle}" Text="ARTIFACT" />
+                    <WrapPanel>
+                        <StackPanel Width="150" Margin="0,0,14,8">
+                            <TextBlock Style="{StaticResource RegistryLabelStyle}" Text="Durum" />
+                            <TextBlock Style="{StaticResource DetailValueStyle}"
+                                       Text="{Binding SelectedModel.ArtifactStatusText, TargetNullValue=—}"
+                                       ToolTip="READY: Model dosyası mevcut ve inference için yüklenebilir." />
+                        </StackPanel>
+                        <StackPanel Width="150" Margin="0,0,14,8">
+                            <TextBlock Style="{StaticResource RegistryLabelStyle}" Text="Schema" />
+                            <TextBlock Style="{StaticResource DetailValueStyle}" Text="{Binding SelectedModel.ArtifactSchemaText, TargetNullValue=—}" />
+                        </StackPanel>
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Margin="0,18,0,0"
+                    Padding="18"
+                    Background="{DynamicResource CardBrush}"
+                    BorderBrush="{DynamicResource ControlBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Visibility="{Binding HasMultipleModels, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <StackPanel>
+                    <TextBlock FontSize="18" FontWeight="SemiBold" Text="Model Karşılaştırma" />
+                    <ItemsControl Margin="0,10,0,0" ItemsSource="{Binding Models}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Width="270"
+                                        Margin="0,0,12,12"
+                                        Padding="12"
+                                        Background="{DynamicResource ControlBackgroundBrush}"
+                                        BorderBrush="{DynamicResource ControlBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="5">
+                                    <StackPanel>
+                                        <TextBlock FontSize="16" FontWeight="SemiBold" Text="{Binding Version}" />
+                                        <TextBlock Margin="0,5,0,0" Foreground="{DynamicResource MutedForegroundBrush}" Text="{Binding TrainingRowsText}" />
+                                        <TextBlock Margin="0,3,0,0" Foreground="{DynamicResource MutedForegroundBrush}" Text="{Binding FeaturesSummaryText}" />
+                                        <TextBlock Margin="0,3,0,0" Foreground="{DynamicResource MutedForegroundBrush}" Text="{Binding TrainingRangeText}" />
+                                        <TextBlock Margin="0,3,0,0" Foreground="{DynamicResource MutedForegroundBrush}" Text="{Binding TrainedAtText, StringFormat=Eğitildi: {0}}" />
+                                        <TextBlock Margin="0,5,0,0" FontWeight="SemiBold" Text="{Binding StatusText}" />
+                                        <TextBlock Margin="0,5,0,0" Foreground="{DynamicResource MutedForegroundBrush}" Text="{Binding NormalFalsePositiveText, StringFormat=Normal yanlış uyarı: {0}}" />
+                                        <TextBlock Margin="0,3,0,0" Foreground="{DynamicResource MutedForegroundBrush}" Text="{Binding ScenarioDetectionText, StringFormat=Senaryo: {0}}" />
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock Foreground="{DynamicResource MutedForegroundBrush}"
+                               Text="Yeni model daha yeni verilerle eğitilmiş olabilir; ancak yalnızca daha yeni olması daha iyi olduğu anlamına gelmez. Model seçimi normal veri yanlış uyarıları ve senaryo doğrulama sonuçları birlikte değerlendirilerek yapılmalıdır."
+                               TextWrapping="Wrap" />
+                    <TextBlock Margin="0,8,0,0"
+                               Foreground="{DynamicResource WarningForegroundBrush}"
+                               Text="{Binding RecommendationText}"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

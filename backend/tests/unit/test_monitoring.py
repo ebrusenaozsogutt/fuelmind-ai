@@ -53,8 +53,9 @@ def test_rule_alarms_include_differentiated_operational_guidance():
     evaluate(repo, pumps=[pump(flow=5)], readings=[reading(tank_id=1, pump_id=2)])
     alarm = repo.items[0]
     assert alarm.alarm_type == "LOW_FLOW"
-    assert "flow" in alarm.description.lower()
-    assert "pump filter" in alarm.recommended_action.lower()
+    assert alarm.title == "Pompa Debi Düşüşü"
+    assert "debi" in alarm.description.lower()
+    assert "pompa filtresini" in alarm.recommended_action.lower()
     assert len(alarm.probable_causes) == 3
 
 
@@ -68,3 +69,58 @@ def test_quality_stuck_mismatch_delivery_and_deduplication():
     repo.items[0].status = AlarmStatus.RESOLVED
     evaluate(repo, tanks=[tank()], readings=[low], deliveries={1})
     assert len(repo.items) == 4
+
+
+def test_rule_only_alarm_keeps_ai_contract_empty_and_dedup_unchanged():
+    repo = Repo()
+    evaluate(repo, pumps=[pump(flow=5)], readings=[reading(tank_id=1, pump_id=2)])
+
+    alarm = repo.items[0]
+    assert alarm.decision_source is None
+    assert alarm.risk_level is None
+    assert alarm.model_version is None
+    assert alarm.findings_json == []
+    assert alarm.recommended_checks_json == []
+    evaluate(repo, pumps=[pump(flow=5)], readings=[reading(tank_id=1, pump_id=2)])
+    assert len(repo.items) == 1
+
+
+def test_hybrid_alarm_persists_complete_real_ai_detail():
+    repo = Repo()
+    candidate = AlarmEngine(repo).candidates(
+        station_id=1,
+        tanks=[],
+        pumps=[pump(flow=5, current=11)],
+        readings=[reading(tank_id=1, pump_id=2)],
+        moment=T,
+    )[0]
+    ai_result = SimpleNamespace(
+        risk_score=91.25,
+        risk_level="CRITICAL",
+        decision_source="HYBRID",
+        severity="CRITICAL",
+        anomaly_type="EQUIPMENT_ANOMALY",
+        model_version="v0001",
+        model_outlier=True,
+        triggered_rules=("LOW_FLOW", "HIGH_MOTOR_CURRENT"),
+        findings=("Pump flow rate is 43% below normal.",),
+        probable_causes=("Filter restriction",),
+        recommended_checks=("Check the pump filter.",),
+        data_quality_note=None,
+        is_anomaly=True,
+    )
+
+    alarm = AlarmEngine(repo).raise_candidates(
+        [candidate], {("PUMP", 2): ai_result}
+    )[0]
+
+    assert alarm.anomaly_score == 91.25
+    assert alarm.risk_level == "CRITICAL"
+    assert alarm.decision_source == "HYBRID"
+    assert alarm.anomaly_type == "EQUIPMENT_ANOMALY"
+    assert alarm.model_version == "v0001"
+    assert alarm.model_outlier is True
+    assert alarm.triggered_rules_json == ["LOW_FLOW", "HIGH_MOTOR_CURRENT"]
+    assert alarm.findings_json == ["Pump flow rate is 43% below normal."]
+    assert alarm.probable_causes == [{"description": "Filter restriction"}]
+    assert alarm.recommended_checks_json == ["Check the pump filter."]

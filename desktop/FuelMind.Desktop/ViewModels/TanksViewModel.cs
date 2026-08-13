@@ -34,7 +34,7 @@ public sealed partial class TanksViewModel : ObservableObject
 
         _measuredLevelSeries = new LineSeries<LiveChartPoint>
         {
-            Name = "Measured level",
+            Name = "Ölçülen seviye",
             Values = [],
             GeometrySize = 8,
             LineSmoothness = 0,
@@ -47,7 +47,7 @@ public sealed partial class TanksViewModel : ObservableObject
         [
             new Axis
             {
-                Name = "Simulation time",
+                Name = "Simülasyon zamanı",
                 Labeler = value => DateTime.FromOADate(value).ToString("HH:mm:ss"),
                 LabelsRotation = 15,
                 MinStep = TimeSpan.FromSeconds(1).TotalDays,
@@ -57,7 +57,7 @@ public sealed partial class TanksViewModel : ObservableObject
         [
             new Axis
             {
-                Name = "Liters",
+                Name = "Litre",
                 Labeler = value => $"{value:N0} L",
             },
         ];
@@ -85,7 +85,7 @@ public sealed partial class TanksViewModel : ObservableObject
 
     public string SelectedTankDisplay => SelectedTank is { } tank
         ? $"{tank.Code ?? "Tank"} (ID: {tank.TankId})"
-        : "--";
+        : "Tank seçilmedi";
 
     public decimal? CurrentMeasuredLevel => SelectedTank?.MeasuredLevelLiters;
     public decimal? CurrentCapacity => SelectedTank?.CapacityLiters;

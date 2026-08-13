@@ -5,7 +5,7 @@
     <Border Width="300"
             Padding="16"
             Background="{DynamicResource CardBrush}"
-            BorderBrush="#3B5362"
+            BorderBrush="{DynamicResource ControlBorderBrush}"
             BorderThickness="1"
             CornerRadius="6">
         <StackPanel>
@@ -16,20 +16,34 @@
                                Foreground="{DynamicResource AppForegroundBrush}"
                                Text="{Binding Pump.PumpId, ElementName=Root, StringFormat=Pompa {0}, TargetNullValue=Pompa --}" />
                     <TextBlock Margin="0,3,0,0"
-                               Foreground="#B8C7D1"
+                               Foreground="{DynamicResource MutedForegroundBrush}"
                                Text="{Binding Pump.TankId, ElementName=Root, StringFormat=Bağlı tank ID: {0}, TargetNullValue=Bağlı tank ID: --}" />
                 </StackPanel>
-                <Border DockPanel.Dock="Right"
-                        Padding="9,4"
-                        Background="{DynamicResource AppBackgroundBrush}"
-                        CornerRadius="4">
-                    <TextBlock FontWeight="SemiBold"
-                               Foreground="{DynamicResource AppForegroundBrush}"
-                               Text="{Binding Pump.Status, ElementName=Root, TargetNullValue=--}" />
-                </Border>
+                <StackPanel DockPanel.Dock="Right">
+                    <Border Padding="9,4" Background="{DynamicResource AppBackgroundBrush}" CornerRadius="4">
+                        <TextBlock FontWeight="SemiBold" Text="{Binding Pump.Status, ElementName=Root, TargetNullValue=--}" />
+                    </Border>
+                    <Border Margin="0,6,0,0" Padding="9,4" CornerRadius="4">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Background" Value="{DynamicResource InactiveBrush}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Pump.AiAnalysis, ElementName=Root}" Value="{x:Null}"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
+                                    <DataTrigger Binding="{Binding Pump.AiAnalysis.RiskLevel, ElementName=Root}" Value="NORMAL"><Setter Property="Background" Value="{DynamicResource SuccessBrush}" /></DataTrigger>
+                                    <DataTrigger Binding="{Binding Pump.AiAnalysis.RiskLevel, ElementName=Root}" Value="MEDIUM"><Setter Property="Background" Value="{DynamicResource WarningBrush}" /></DataTrigger>
+                                    <DataTrigger Binding="{Binding Pump.AiAnalysis.RiskLevel, ElementName=Root}" Value="HIGH"><Setter Property="Background" Value="{DynamicResource DangerBrush}" /></DataTrigger>
+                                    <DataTrigger Binding="{Binding Pump.AiAnalysis.RiskLevel, ElementName=Root}" Value="CRITICAL"><Setter Property="Background" Value="{DynamicResource DangerBrush}" /></DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <TextBlock FontWeight="Bold"
+                                   Text="{Binding Pump.AiAnalysis.PumpBadgeDisplay, ElementName=Root}"
+                                   ToolTip="{Binding Pump.AiAnalysis.DecisionSourceDisplay, ElementName=Root}" />
+                    </Border>
+                </StackPanel>
             </DockPanel>
 
-            <Separator Margin="0,12,0,10" Background="#3B5362" />
+            <Separator Margin="0,12,0,10" Background="{DynamicResource ControlBorderBrush}" />
 
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -37,19 +51,19 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0">
-                    <TextBlock Foreground="#B8C7D1" Text="Akış hızı" />
+                    <TextBlock Foreground="{DynamicResource MutedForegroundBrush}" Text="Akış hızı" />
                     <TextBlock FontSize="16" FontWeight="SemiBold" Text="{Binding Pump.FlowRate, ElementName=Root, StringFormat={}{0:N1}, TargetNullValue=--}" />
-                    <TextBlock Margin="0,12,0,0" Foreground="#B8C7D1" Text="Basınç" />
+                    <TextBlock Margin="0,12,0,0" Foreground="{DynamicResource MutedForegroundBrush}" Text="Basınç" />
                     <TextBlock Text="{Binding Pump.Pressure, ElementName=Root, StringFormat={}{0:N1}, TargetNullValue=--}" />
-                    <TextBlock Margin="0,12,0,0" Foreground="#B8C7D1" Text="Motor akımı" />
+                    <TextBlock Margin="0,12,0,0" Foreground="{DynamicResource MutedForegroundBrush}" Text="Motor akımı" />
                     <TextBlock Text="{Binding Pump.MotorCurrent, ElementName=Root, StringFormat={}{0:N1}, TargetNullValue=--}" />
                 </StackPanel>
                 <StackPanel Grid.Column="1">
-                    <TextBlock Foreground="#B8C7D1" Text="Sıcaklık" />
+                    <TextBlock Foreground="{DynamicResource MutedForegroundBrush}" Text="Sıcaklık" />
                     <TextBlock FontSize="16" FontWeight="SemiBold" Text="{Binding Pump.Temperature, ElementName=Root, StringFormat={}{0:N1}, TargetNullValue=--}" />
-                    <TextBlock Margin="0,12,0,0" Foreground="#B8C7D1" Text="Hata sayısı" />
+                    <TextBlock Margin="0,12,0,0" Foreground="{DynamicResource MutedForegroundBrush}" Text="Hata sayısı" />
                     <TextBlock Text="{Binding Pump.ErrorCount, ElementName=Root, TargetNullValue=--}" />
-                    <TextBlock Margin="0,12,0,0" Foreground="#B8C7D1" Text="Çalışma süresi" />
+                    <TextBlock Margin="0,12,0,0" Foreground="{DynamicResource MutedForegroundBrush}" Text="Çalışma süresi" />
                     <TextBlock Text="{Binding Pump.WorkingDuration, ElementName=Root, StringFormat={}{0:N1}, TargetNullValue=--}" />
                 </StackPanel>
             </Grid>

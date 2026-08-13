@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from enum import Enum
 from typing import Any
 
@@ -12,15 +13,24 @@ from app.utils.datetime_utils import utc_now
 
 def serialize_alarm_created(alarm: object) -> dict[str, Any]:
     """Public alarm-created message shared by desktop and web clients."""
-    anomaly_type = getattr(alarm, "anomaly_type", None)
     return {
         "event_type": "alarm_created", "alarm_id": alarm.id,
         "station_id": alarm.station_id, "tank_id": alarm.tank_id,
         "pump_id": alarm.pump_id, "alarm_type": alarm.alarm_type,
         "severity": alarm.severity.value, "title": alarm.title,
-        "description": alarm.description, "anomaly_type": _json_value(anomaly_type),
+        "description": alarm.description,
+        "anomaly_type": getattr(alarm, "anomaly_type", None),
         "recommended_action": getattr(alarm, "recommended_action", None),
         "probable_causes": _json_value(getattr(alarm, "probable_causes", None)),
+        "anomaly_score": _json_value(getattr(alarm, "anomaly_score", None)),
+        "risk_level": getattr(alarm, "risk_level", None),
+        "decision_source": getattr(alarm, "decision_source", None),
+        "model_version": getattr(alarm, "model_version", None),
+        "model_outlier": getattr(alarm, "model_outlier", None),
+        "triggered_rules": _json_value(getattr(alarm, "triggered_rules_json", None)),
+        "findings": _json_value(getattr(alarm, "findings_json", None)),
+        "recommended_checks": _json_value(getattr(alarm, "recommended_checks_json", None)),
+        "data_quality_note": getattr(alarm, "data_quality_note", None),
         "status": alarm.status.value, "detected_at": alarm.detected_at.isoformat(),
     }
 
@@ -94,6 +104,22 @@ def serialize_simulation_tick(
     }
 
 
+def serialize_anomaly_evaluation(
+    simulation_run_id: int,
+    tick_result: SimulationTickResult,
+) -> dict[str, Any]:
+    """Publish AI as an additive event so the established tick contract stays unchanged."""
+
+    return {
+        "event_type": "anomaly_evaluation",
+        "simulation_run_id": simulation_run_id,
+        "station_id": tick_result.station_id,
+        "simulation_time": tick_result.simulation_time.isoformat(),
+        "sequence": tick_result.sequence_number,
+        "results": [result.to_dict() for result in tick_result.ai_results],
+    }
+
+
 def _json_value(value: object) -> object:
     """Convert event payload values to JSON primitives without exposing internals."""
 
@@ -101,6 +127,8 @@ def _json_value(value: object) -> object:
         return value.isoformat()
     if isinstance(value, Enum):
         return value.value
+    if isinstance(value, Decimal):
+        return float(value)
     if isinstance(value, dict):
         return {str(key): _json_value(item) for key, item in value.items()}
     if isinstance(value, (list, tuple, set)):

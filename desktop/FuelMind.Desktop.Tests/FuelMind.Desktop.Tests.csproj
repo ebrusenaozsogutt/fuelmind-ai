@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
     <IsPackable>false</IsPackable>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -16,5 +17,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\FuelMind.Desktop\FuelMind.Desktop.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="System.Net.Http" />
   </ItemGroup>
 </Project>

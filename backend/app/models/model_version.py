@@ -9,6 +9,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     Integer,
+    JSON,
     Numeric,
     String,
     UniqueConstraint,
@@ -39,12 +40,21 @@ class ModelVersion(Base):
         CheckConstraint(
             "mape IS NULL OR mape >= 0", name="ck_model_versions_mape_nonnegative"
         ),
+        CheckConstraint(
+            "artifact_size_bytes >= 0", name="ck_model_versions_artifact_size_nonnegative"
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     model_type: Mapped[str] = mapped_column(String(100), index=True, nullable=False)
+    model_family: Mapped[str] = mapped_column(String(50), index=True, nullable=False)
     version: Mapped[str] = mapped_column(String(100), nullable=False)
     file_path: Mapped[str] = mapped_column(String(500), nullable=False)
+    artifact_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    artifact_size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    metadata_json: Mapped[dict[str, object]] = mapped_column(
+        JSON, default=dict, nullable=False
+    )
     training_start_date: Mapped[date] = mapped_column(Date, nullable=False)
     training_end_date: Mapped[date] = mapped_column(Date, nullable=False)
     training_row_count: Mapped[int] = mapped_column(Integer, nullable=False)

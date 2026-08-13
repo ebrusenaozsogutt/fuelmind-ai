@@ -95,6 +95,11 @@ public partial class App : Application
         services.AddSingleton<LoginPreferenceStore>();
         services.AddSingleton<AuthService>();
         services.AddSingleton<AlarmService>();
+        services.AddSingleton<IAlarmService>(provider => provider.GetRequiredService<AlarmService>());
+        services.AddSingleton<ModelService>();
+        services.AddSingleton<IModelService>(provider => provider.GetRequiredService<ModelService>());
+        services.AddSingleton<StationService>();
+        services.AddSingleton<IStationService>(provider => provider.GetRequiredService<StationService>());
         services.AddSingleton<LoginViewModel>();
         services.AddSingleton<LiveMonitoringViewModel>();
         services.AddSingleton<TanksViewModel>();
@@ -102,9 +107,11 @@ public partial class App : Application
         services.AddSingleton<DashboardViewModel>();
         services.AddSingleton<SimulatorViewModel>();
         services.AddSingleton<AlarmsViewModel>();
+        services.AddSingleton<ModelManagementViewModel>();
         services.AddSingleton<TankDetailViewModel>();
         services.AddSingleton<PumpDetailViewModel>();
         services.AddSingleton<MainViewModel>();
         services.AddSingleton<MainWindow>();
+        services.AddTransient<ModelManagementView>();
     }
 }

@@ -5,7 +5,7 @@
     <Border Width="300"
             Padding="16"
             Background="{DynamicResource CardBrush}"
-            BorderBrush="#3B5362"
+            BorderBrush="{DynamicResource ControlBorderBrush}"
             BorderThickness="1"
             CornerRadius="6">
         <Grid>
@@ -19,21 +19,21 @@
                 <Border Width="58"
                         Height="190"
                         Padding="5"
-                        Background="#101820"
-                        BorderBrush="#6D8595"
+                        Background="{DynamicResource AppBackgroundBrush}"
+                        BorderBrush="{DynamicResource MutedForegroundBrush}"
                         BorderThickness="2"
                         CornerRadius="8">
                     <ProgressBar Minimum="0"
                                  Maximum="100"
                                  Value="{Binding FillPercentage, ElementName=Root, TargetNullValue=0}"
                                  Foreground="#2C9B68"
-                                 Background="#101820"
+                                 Background="{DynamicResource AppBackgroundBrush}"
                                  BorderThickness="0"
                                  Orientation="Vertical" />
                 </Border>
                 <TextBlock Margin="0,8,0,0"
                            HorizontalAlignment="Center"
-                           Foreground="#B8C7D1"
+                           Foreground="{DynamicResource MutedForegroundBrush}"
                            Text="{Binding FillPercentageText, ElementName=Root}" />
             </StackPanel>
 
@@ -43,24 +43,24 @@
                            Foreground="{DynamicResource AppForegroundBrush}"
                            Text="{Binding Tank.Code, ElementName=Root, TargetNullValue=Tank --}" />
                 <TextBlock Margin="0,3,0,0"
-                           Foreground="#B8C7D1"
+                           Foreground="{DynamicResource MutedForegroundBrush}"
                            Text="{Binding Tank.TankId, ElementName=Root, StringFormat=Tank ID: {0}, TargetNullValue=Tank ID: --}" />
-                <TextBlock Foreground="#B8C7D1"
+                <TextBlock Foreground="{DynamicResource MutedForegroundBrush}"
                            Text="{Binding Tank.FuelTypeId, ElementName=Root, StringFormat=Yakıt türü ID: {0}, TargetNullValue=Yakıt türü ID: --}" />
 
-                <Separator Margin="0,12,0,10" Background="#3B5362" />
+                <Separator Margin="0,12,0,10" Background="{DynamicResource ControlBorderBrush}" />
 
-                <TextBlock Foreground="#B8C7D1" Text="Ölçülen seviye" />
+                <TextBlock Foreground="{DynamicResource MutedForegroundBrush}" Text="Ölçülen seviye" />
                 <TextBlock FontSize="16"
                            FontWeight="SemiBold"
                            Text="{Binding Tank.MeasuredLevelLiters, ElementName=Root, StringFormat={}{0:N0} L, TargetNullValue=--}" />
-                <TextBlock Margin="0,8,0,0" Foreground="#B8C7D1" Text="Gerçek seviye" />
+                <TextBlock Margin="0,8,0,0" Foreground="{DynamicResource MutedForegroundBrush}" Text="Gerçek seviye" />
                 <TextBlock Text="{Binding Tank.TrueLevelLiters, ElementName=Root, StringFormat={}{0:N0} L, TargetNullValue=--}" />
-                <TextBlock Margin="0,8,0,0" Foreground="#B8C7D1" Text="Kapasite" />
-                <TextBlock Text="{Binding Tank.CapacityLiters, ElementName=Root, StringFormat={}{0:N0} L, TargetNullValue=--}" />
-                <TextBlock Margin="0,8,0,0" Foreground="#B8C7D1" Text="Sıcaklık" />
+                <TextBlock Margin="0,8,0,0" Foreground="{DynamicResource MutedForegroundBrush}" Text="Kapasite" />
+                <TextBlock Text="{Binding Tank.CapacityLiters, ElementName=Root, StringFormat={}{0:N0} L, TargetNullValue=Veri yok}" />
+                <TextBlock Margin="0,8,0,0" Foreground="{DynamicResource MutedForegroundBrush}" Text="Sıcaklık" />
                 <TextBlock Text="{Binding Tank.Temperature, ElementName=Root, StringFormat={}{0:N1} °C, TargetNullValue=--}" />
-                <TextBlock Margin="0,8,0,0" Foreground="#B8C7D1" Text="Su seviyesi" />
+                <TextBlock Margin="0,8,0,0" Foreground="{DynamicResource MutedForegroundBrush}" Text="Su seviyesi" />
                 <TextBlock Text="{Binding Tank.WaterLevel, ElementName=Root, StringFormat={}{0:N1}, TargetNullValue=--}" />
             </StackPanel>
         </Grid>

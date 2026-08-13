@@ -26,6 +26,7 @@
         <DataTemplate DataType="{x:Type viewModels:PumpsViewModel}"><views:PumpsView /></DataTemplate>
         <DataTemplate DataType="{x:Type viewModels:SimulatorViewModel}"><views:SimulatorView /></DataTemplate>
         <DataTemplate DataType="{x:Type viewModels:AlarmsViewModel}"><views:AlarmsView /></DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:ModelManagementViewModel}"><views:ModelManagementView /></DataTemplate>
         <DataTemplate DataType="{x:Type viewModels:TankDetailViewModel}"><views:TankDetailView /></DataTemplate>
         <DataTemplate DataType="{x:Type viewModels:PumpDetailViewModel}"><views:PumpDetailView /></DataTemplate>
         <DataTemplate DataType="{x:Type viewModels:PlaceholderPageViewModel}"><views:PlaceholderView /></DataTemplate>

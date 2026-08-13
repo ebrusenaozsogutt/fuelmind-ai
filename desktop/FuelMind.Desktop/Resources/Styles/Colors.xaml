@@ -8,6 +8,19 @@
     <SolidColorBrush x:Key="MutedForegroundBrush" Color="#B8C7D1" />
     <SolidColorBrush x:Key="ControlBackgroundBrush" Color="#1B2A33" />
     <SolidColorBrush x:Key="ControlBorderBrush" Color="#3B5362" />
+    <SolidColorBrush x:Key="TableHeaderBrush" Color="#16232E" />
+    <SolidColorBrush x:Key="RowHoverBrush" Color="#2B4658" />
+    <SolidColorBrush x:Key="RowSelectedBrush" Color="#145A75" />
+    <SolidColorBrush x:Key="RowSelectedBorderBrush" Color="#38BDF8" />
+    <SolidColorBrush x:Key="DisabledForegroundBrush" Color="#9FB0BC" />
+    <SolidColorBrush x:Key="AccentBrush" Color="#38BDF8" />
+    <SolidColorBrush x:Key="SuccessBrush" Color="#15803D" />
+    <SolidColorBrush x:Key="WarningBrush" Color="#D97706" />
+    <SolidColorBrush x:Key="DangerBrush" Color="#B91C1C" />
+    <SolidColorBrush x:Key="InactiveBrush" Color="#526377" />
+    <SolidColorBrush x:Key="SuccessForegroundBrush" Color="#86EFAC" />
+    <SolidColorBrush x:Key="WarningForegroundBrush" Color="#FBBF24" />
+    <SolidColorBrush x:Key="DangerForegroundBrush" Color="#FCA5A5" />
     <SolidColorBrush x:Key="AlarmSeverityLOWBrush" Color="#2563EB" />
     <SolidColorBrush x:Key="AlarmSeverityMEDIUMBrush" Color="#D97706" />
     <SolidColorBrush x:Key="AlarmSeverityHIGHBrush" Color="#DC2626" />
@@ -19,8 +32,15 @@
     <SolidColorBrush x:Key="AlarmStatusRESOLVEDBrush" Color="#15803D" />
     <SolidColorBrush x:Key="AlarmStatusFALSE_POSITIVEBrush" Color="#6B7280" />
     <SolidColorBrush x:Key="AlarmStatusDefaultBrush" Color="#64748B" />
+    <SolidColorBrush x:Key="AiRiskNORMALBrush" Color="#15803D" />
+    <SolidColorBrush x:Key="AiRiskWATCHBrush" Color="#526377" />
+    <SolidColorBrush x:Key="AiRiskMEDIUMBrush" Color="#9A3412" />
+    <SolidColorBrush x:Key="AiRiskHIGHBrush" Color="#B91C1C" />
+    <SolidColorBrush x:Key="AiRiskCRITICALBrush" Color="#7F1D1D" />
+    <SolidColorBrush x:Key="AiRiskDefaultBrush" Color="#64748B" />
     <converters:AlarmSeverityToBrushConverter x:Key="AlarmSeverityToBrushConverter" />
     <converters:AlarmStatusToBrushConverter x:Key="AlarmStatusToBrushConverter" />
+    <converters:AiRiskLevelToBrushConverter x:Key="AiRiskLevelToBrushConverter" />
     <Style x:Key="SidebarButtonStyle" TargetType="Button">
         <Setter Property="Margin" Value="8,3" /><Setter Property="Padding" Value="12,9" />
         <Setter Property="HorizontalContentAlignment" Value="Left" /><Setter Property="Foreground" Value="#F4F7FA" />
@@ -33,28 +53,7 @@
     </Style>
     <Style x:Key="AlarmBadgeStyle" TargetType="Border">
         <Setter Property="Padding" Value="8,3" /><Setter Property="CornerRadius" Value="10" />
-        <Setter Property="TextElement.Foreground" Value="#F8FAFC" />
-    </Style>
-    <Style x:Key="DarkComboBoxStyle" TargetType="ComboBox">
-        <Setter Property="Foreground" Value="{StaticResource AppForegroundBrush}" />
-        <Setter Property="TextElement.Foreground" Value="{StaticResource AppForegroundBrush}" />
-        <Setter Property="Background" Value="{StaticResource ControlBackgroundBrush}" />
-        <Setter Property="BorderBrush" Value="{StaticResource ControlBorderBrush}" />
-        <Setter Property="Padding" Value="8,4" />
-        <Setter Property="ItemContainerStyle">
-            <Setter.Value>
-                <Style TargetType="ComboBoxItem">
-                    <Setter Property="Foreground" Value="{StaticResource AppForegroundBrush}" />
-                    <Setter Property="TextElement.Foreground" Value="{StaticResource AppForegroundBrush}" />
-                    <Setter Property="Background" Value="{StaticResource ControlBackgroundBrush}" />
-                    <Setter Property="Padding" Value="8,5" />
-                    <Style.Triggers>
-                        <Trigger Property="IsHighlighted" Value="True"><Setter Property="Background" Value="#29485A" /></Trigger>
-                        <Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="#2563EB" /></Trigger>
-                    </Style.Triggers>
-                </Style>
-            </Setter.Value>
-        </Setter>
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource AppForegroundBrush}" />
     </Style>
     <Style x:Key="AlarmSidebarButtonStyle" TargetType="Button" BasedOn="{StaticResource SidebarButtonStyle}">
         <Style.Triggers><DataTrigger Binding="{Binding CurrentPageTitle}" Value="Alarm Merkezi"><Setter Property="Background" Value="#29485A" /><Setter Property="FontWeight" Value="SemiBold" /><Setter Property="BorderBrush" Value="#38BDF8" /><Setter Property="BorderThickness" Value="3,0,0,0" /></DataTrigger></Style.Triggers>

@@ -53,6 +53,11 @@ public sealed class ApiClient
         CancellationToken cancellationToken = default) =>
         SendAsync<TResponse>(HttpMethod.Patch, relativePath, CreateJsonContent(request), cancellationToken);
 
+    public Task<TResponse> PatchAsync<TResponse>(
+        string relativePath,
+        CancellationToken cancellationToken = default) =>
+        SendAsync<TResponse>(HttpMethod.Patch, relativePath, content: null, cancellationToken);
+
     public async Task DeleteAsync(string relativePath, CancellationToken cancellationToken = default)
     {
         using var response = await SendRequestAsync(

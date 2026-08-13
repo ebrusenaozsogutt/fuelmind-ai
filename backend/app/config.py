@@ -1,6 +1,7 @@
 """Central application settings loaded from environment variables."""
 
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -22,6 +23,9 @@ class Settings(BaseSettings):
     DEMO_ADMIN_PASSWORD: str | None = None
     DEMO_OPERATOR_PASSWORD: str | None = None
     LIVE_WS_HEARTBEAT_SECONDS: float = 20.0
+    MODEL_REGISTRY_ROOT: Path = Path(__file__).resolve().parents[2] / "trained_models"
+    LIVE_AI_HISTORY_MINUTES: int = 35
+    LIVE_AI_HISTORY_LIMIT: int = 2000
 
     model_config = SettingsConfigDict(
         env_file=".env",

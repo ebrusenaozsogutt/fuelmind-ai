@@ -48,6 +48,7 @@ class SimulationTickResult:
     events: list[SimulationTickEvent] = field(default_factory=list)
     active_scenarios: list[dict[str, object]] = field(default_factory=list)
     created_alarms: list[object] = field(default_factory=list)
+    ai_results: list[object] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if self.station_id <= 0 or self.sequence_number <= 0:

@@ -10,7 +10,7 @@
             <StackPanel>
                 <TextBlock FontSize="30" FontWeight="SemiBold" Foreground="{DynamicResource AppForegroundBrush}"
                            Text="FuelMind AI" />
-                <TextBlock Margin="0,6,0,28" Foreground="#B8C7D1"
+                <TextBlock Margin="0,6,0,28" Foreground="{DynamicResource MutedForegroundBrush}"
                            Text="Operasyon yönetim platformuna giriş yapın." TextWrapping="Wrap" />
                 <TextBlock Foreground="{DynamicResource AppForegroundBrush}" Text="Kullanıcı adı" />
                 <TextBox Margin="0,6,0,18" Padding="10,7" Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}" />
@@ -23,8 +23,8 @@
                 <CheckBox Margin="0,0,0,18" Foreground="{DynamicResource AppForegroundBrush}"
                           Content="Beni hatırla" IsChecked="{Binding RememberMe}"
                           ToolTip="Bu aşamada parola veya oturum bilgisi kalıcı olarak saklanmaz." />
-                <TextBlock Margin="0,0,0,12" Foreground="#FFB4AB" TextWrapping="Wrap" Text="{Binding ErrorMessage}" />
-                <TextBlock Margin="0,0,0,12" Foreground="#B8C7D1" Text="Giriş yapılıyor..."
+                <TextBlock Margin="0,0,0,12" Foreground="{DynamicResource WarningForegroundBrush}" TextWrapping="Wrap" Text="{Binding ErrorMessage}" />
+                <TextBlock Margin="0,0,0,12" Foreground="{DynamicResource MutedForegroundBrush}" Text="Giriş yapılıyor..."
                            Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}" />
                 <Button Height="38" IsDefault="True" Click="OnLoginClick" Content="Giriş Yap">
                     <Button.Style>

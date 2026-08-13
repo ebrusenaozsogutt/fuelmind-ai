@@ -15,8 +15,9 @@ public sealed partial class AuthenticatedShellViewModel : ObservableObject
     private readonly SimulatorViewModel _simulatorViewModel;
     private readonly TankDetailViewModel _tankDetail; private readonly PumpDetailViewModel _pumpDetail;
     private readonly AlarmsViewModel _alarms;
+    private readonly ModelManagementViewModel _modelManagement;
 
-    public AuthenticatedShellViewModel(CurrentUserResponseDto currentUser, AuthService authService, LiveMonitoringViewModel liveMonitoringViewModel, TanksViewModel tanksViewModel, PumpsViewModel pumpsViewModel, DashboardViewModel dashboardViewModel, SimulatorViewModel simulatorViewModel, TankDetailViewModel tankDetail, PumpDetailViewModel pumpDetail, AlarmsViewModel alarms, DetailNavigationService nav)
+    public AuthenticatedShellViewModel(CurrentUserResponseDto currentUser, AuthService authService, LiveMonitoringViewModel liveMonitoringViewModel, TanksViewModel tanksViewModel, PumpsViewModel pumpsViewModel, DashboardViewModel dashboardViewModel, SimulatorViewModel simulatorViewModel, TankDetailViewModel tankDetail, PumpDetailViewModel pumpDetail, AlarmsViewModel alarms, ModelManagementViewModel modelManagement, DetailNavigationService nav)
     {
         CurrentUser = currentUser;
         _authService = authService;
@@ -26,6 +27,7 @@ public sealed partial class AuthenticatedShellViewModel : ObservableObject
         _dashboardViewModel = dashboardViewModel;
         _simulatorViewModel = simulatorViewModel;
         _alarms = alarms;
+        _modelManagement = modelManagement;
         _tankDetail=tankDetail;_pumpDetail=pumpDetail; nav.TankRequested+=id=>{_tankDetail.Select(id);ShowPage(_tankDetail,"Tank Detail");};nav.PumpRequested+=id=>{_pumpDetail.Select(id);ShowPage(_pumpDetail,"Pump Detail");};nav.BackToTanksRequested+=()=>ShowPage(_tanksViewModel,"Tanklar");nav.BackToPumpsRequested+=()=>ShowPage(_pumpsViewModel,"Pompalar");
         CurrentPage = _dashboardViewModel;
         _alarms.AlarmsChanged += (_, _) => _ = _dashboardViewModel.RefreshSummaryAsync();
@@ -58,7 +60,7 @@ public sealed partial class AuthenticatedShellViewModel : ObservableObject
     [RelayCommand] private void ShowOrders() => ShowPlaceholder("Sipariş Önerileri");
     [RelayCommand] private void ShowSimulator() { ShowPage(_simulatorViewModel, "Simülatör"); _ = _simulatorViewModel.RefreshActiveRunAsync(); }
     [RelayCommand] private void ShowReports() => ShowPlaceholder("Raporlar");
-    [RelayCommand] private void ShowModelManagement() => ShowPlaceholder("Model Yönetimi");
+    [RelayCommand] private void ShowModelManagement() { ShowPage(_modelManagement, "AI Model Yönetimi"); _ = _modelManagement.LoadModelsAsync(); }
     [RelayCommand] private void ShowSettings() => ShowPlaceholder("Ayarlar");
     [RelayCommand] private void Logout()
     {

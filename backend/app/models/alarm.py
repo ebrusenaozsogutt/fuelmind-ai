@@ -69,6 +69,15 @@ class Alarm(Base):
     )
     recommended_action: Mapped[str | None] = mapped_column(Text, nullable=True)
     anomaly_score: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    risk_level: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    decision_source: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    anomaly_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    model_version: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    model_outlier: Mapped[bool | None] = mapped_column(nullable=True)
+    triggered_rules_json: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
+    findings_json: Mapped[list[dict[str, object] | str] | None] = mapped_column(JSONB, nullable=True)
+    recommended_checks_json: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
+    data_quality_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[AlarmStatus] = mapped_column(
         SqlEnum(
             AlarmStatus,

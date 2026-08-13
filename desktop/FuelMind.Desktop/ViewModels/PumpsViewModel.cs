@@ -39,7 +39,7 @@ public sealed partial class PumpsViewModel : ObservableObject
 
         _selectedMetricSeries = new LineSeries<LiveChartPoint>
         {
-            Name = "Flow rate",
+            Name = "Debi",
             Values = [],
             GeometrySize = 0,
             LineSmoothness = 0,
@@ -53,7 +53,7 @@ public sealed partial class PumpsViewModel : ObservableObject
         [
             new Axis
             {
-                Name = "Simulation time",
+                Name = "Simülasyon zamanı",
                 Labeler = value => DateTime.FromOADate(value).ToString("HH:mm:ss"),
                 LabelsRotation = 15,
                 MinStep = TimeSpan.FromSeconds(1).TotalDays,
@@ -65,7 +65,7 @@ public sealed partial class PumpsViewModel : ObservableObject
         [
             new Axis
             {
-                Name = "Flow rate",
+                Name = "Debi",
                 Labeler = value => value.ToString("N1"),
                 MinLimit = 0,
                 LabelsPaint = new SolidColorPaint(new SKColor(184, 199, 209)),
@@ -83,10 +83,10 @@ public sealed partial class PumpsViewModel : ObservableObject
     public int SelectedChartPointCount => _selectedPumpHistory?.Count ?? 0;
     public IReadOnlyList<PumpChartMetricOption> MetricOptions { get; } =
     [
-        new(PumpChartMetric.FlowRate, "Flow rate"),
-        new(PumpChartMetric.Pressure, "Pressure"),
-        new(PumpChartMetric.MotorCurrent, "Motor current"),
-        new(PumpChartMetric.Temperature, "Pump temperature"),
+        new(PumpChartMetric.FlowRate, "Debi"),
+        new(PumpChartMetric.Pressure, "Basınç"),
+        new(PumpChartMetric.MotorCurrent, "Motor akımı"),
+        new(PumpChartMetric.Temperature, "Pompa sıcaklığı"),
     ];
 
     [ObservableProperty]
@@ -100,8 +100,8 @@ public sealed partial class PumpsViewModel : ObservableObject
         : null;
 
     public string SelectedPumpDisplay => SelectedPump is { } pump
-        ? $"Pump ID: {pump.PumpId} (Tank ID: {pump.TankId})"
-        : "--";
+        ? $"Pompa ID: {pump.PumpId} (Tank ID: {pump.TankId})"
+        : "Pompa seçilmedi";
 
     public string SelectedMetricTitle => GetMetricTitle(SelectedMetric);
     public decimal? CurrentMetricValue => SelectedPump is null ? null : SelectedMetric switch
@@ -176,19 +176,19 @@ public sealed partial class PumpsViewModel : ObservableObject
 
     private static string GetMetricTitle(PumpChartMetric metric) => metric switch
     {
-        PumpChartMetric.FlowRate => "Flow rate",
-        PumpChartMetric.Pressure => "Pressure",
-        PumpChartMetric.MotorCurrent => "Motor current",
-        PumpChartMetric.Temperature => "Pump temperature",
+        PumpChartMetric.FlowRate => "Debi",
+        PumpChartMetric.Pressure => "Basınç",
+        PumpChartMetric.MotorCurrent => "Motor akımı",
+        PumpChartMetric.Temperature => "Pompa sıcaklığı",
         _ => throw new ArgumentOutOfRangeException(nameof(metric), metric, null),
     };
 
     private static string GetMetricAxisTitle(PumpChartMetric metric) => metric switch
     {
-        PumpChartMetric.FlowRate => "Flow rate (L/min)",
-        PumpChartMetric.Pressure => "Pressure (bar)",
-        PumpChartMetric.MotorCurrent => "Motor current (A)",
-        PumpChartMetric.Temperature => "Pump temperature (C)",
+        PumpChartMetric.FlowRate => "Debi (L/dk)",
+        PumpChartMetric.Pressure => "Basınç (bar)",
+        PumpChartMetric.MotorCurrent => "Motor akımı (A)",
+        PumpChartMetric.Temperature => "Pompa sıcaklığı (°C)",
         _ => throw new ArgumentOutOfRangeException(nameof(metric), metric, null),
     };
 

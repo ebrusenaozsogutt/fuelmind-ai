@@ -14,11 +14,12 @@ public sealed partial class MainViewModel : ObservableObject
     private readonly TankDetailViewModel _tankDetailViewModel;
     private readonly PumpDetailViewModel _pumpDetailViewModel;
     private readonly AlarmsViewModel _alarmsViewModel;
+    private readonly ModelManagementViewModel _modelManagementViewModel;
     private readonly Services.DetailNavigationService _detailNavigation;
 
     private readonly Services.AuthService _authService;
 
-    public MainViewModel(LoginViewModel loginViewModel, State.AuthState authState, Services.AuthService authService, LiveMonitoringViewModel liveMonitoringViewModel, TanksViewModel tanksViewModel, PumpsViewModel pumpsViewModel, DashboardViewModel dashboardViewModel, SimulatorViewModel simulatorViewModel, TankDetailViewModel tankDetailViewModel, PumpDetailViewModel pumpDetailViewModel, AlarmsViewModel alarmsViewModel, Services.DetailNavigationService detailNavigation)
+    public MainViewModel(LoginViewModel loginViewModel, State.AuthState authState, Services.AuthService authService, LiveMonitoringViewModel liveMonitoringViewModel, TanksViewModel tanksViewModel, PumpsViewModel pumpsViewModel, DashboardViewModel dashboardViewModel, SimulatorViewModel simulatorViewModel, TankDetailViewModel tankDetailViewModel, PumpDetailViewModel pumpDetailViewModel, AlarmsViewModel alarmsViewModel, ModelManagementViewModel modelManagementViewModel, Services.DetailNavigationService detailNavigation)
     {
         _loginViewModel = loginViewModel;
         _authState = authState;
@@ -29,6 +30,7 @@ public sealed partial class MainViewModel : ObservableObject
         _dashboardViewModel = dashboardViewModel;
         _simulatorViewModel = simulatorViewModel;
         _alarmsViewModel = alarmsViewModel;
+        _modelManagementViewModel = modelManagementViewModel;
         _tankDetailViewModel=tankDetailViewModel; _pumpDetailViewModel=pumpDetailViewModel; _detailNavigation=detailNavigation;
         _loginViewModel.LoginSucceeded += OnLoginSucceeded;
         CurrentViewModel = _loginViewModel;
@@ -55,7 +57,7 @@ public sealed partial class MainViewModel : ObservableObject
 
     private void ShowShell(Dtos.Auth.CurrentUserResponseDto currentUser)
     {
-        var shell = new AuthenticatedShellViewModel(currentUser, _authService, _liveMonitoringViewModel, _tanksViewModel, _pumpsViewModel, _dashboardViewModel, _simulatorViewModel, _tankDetailViewModel, _pumpDetailViewModel, _alarmsViewModel, _detailNavigation);
+        var shell = new AuthenticatedShellViewModel(currentUser, _authService, _liveMonitoringViewModel, _tanksViewModel, _pumpsViewModel, _dashboardViewModel, _simulatorViewModel, _tankDetailViewModel, _pumpDetailViewModel, _alarmsViewModel, _modelManagementViewModel, _detailNavigation);
         shell.LogoutRequested += (_, _) => CurrentViewModel = _loginViewModel;
         CurrentViewModel = shell;
     }

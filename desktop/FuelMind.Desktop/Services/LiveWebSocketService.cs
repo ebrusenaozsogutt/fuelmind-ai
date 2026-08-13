@@ -171,6 +171,9 @@ public sealed class LiveWebSocketService : IDisposable
             case SimulationTickDto simulationTick:
                 _liveDataStore.ApplySimulationTick(simulationTick);
                 break;
+            case AnomalyEvaluationDto anomalyEvaluation:
+                _liveDataStore.ApplyAnomalyEvaluation(anomalyEvaluation);
+                break;
             case AlarmCreatedDto:
                 // Alarm consumers receive this through MessageReceived.  It must
                 // never replace or clear the station telemetry collections.

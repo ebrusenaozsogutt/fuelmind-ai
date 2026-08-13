@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("FuelMind.Desktop.Tests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+79776819b0ce7122c4f9995b02585900314ee39c")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+142f530d91dedd9ee6d75e8e93fb02bd0731e95f")]
 [assembly: System.Reflection.AssemblyProductAttribute("FuelMind.Desktop.Tests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("FuelMind.Desktop.Tests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

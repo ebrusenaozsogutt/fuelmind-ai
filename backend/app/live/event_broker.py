@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 
 from app.live.connection_manager import ConnectionManager
-from app.live.serializers import serialize_alarm_created, serialize_simulation_tick
+from app.live.serializers import serialize_alarm_created, serialize_anomaly_evaluation, serialize_simulation_tick
 from app.simulation.tick_result import SimulationTickResult
 
 logger = logging.getLogger(__name__)
@@ -49,3 +49,17 @@ class LiveEventBroker:
             await self._connection_manager.broadcast(alarm.station_id, serialize_alarm_created(alarm))
         except Exception:
             logger.warning("Failed to publish alarm: alarm_id=%s", getattr(alarm, "id", None), exc_info=True)
+
+    async def publish_anomaly_evaluation(self, simulation_run_id: int, tick_result: SimulationTickResult) -> None:
+        if not tick_result.ai_results:
+            return
+        try:
+            await self._connection_manager.broadcast(
+                tick_result.station_id,
+                serialize_anomaly_evaluation(simulation_run_id, tick_result),
+            )
+        except Exception:
+            logger.warning(
+                "Failed to publish live anomaly evaluation: run_id=%s sequence=%s",
+                simulation_run_id, tick_result.sequence_number, exc_info=True,
+            )

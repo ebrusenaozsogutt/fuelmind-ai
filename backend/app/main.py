@@ -13,6 +13,7 @@ from app.api.dashboard import router as dashboard_router
 from app.api.error_handlers import register_exception_handlers
 from app.api.fuel_types import router as fuel_types_router
 from app.api.live import router as live_router
+from app.api.models import router as models_router
 from app.api.pumps import router as pumps_router
 from app.api.sales import router as sales_router
 from app.api.simulations import router as simulations_router
@@ -69,6 +70,7 @@ app.include_router(sales_router, prefix=settings.API_PREFIX)
 app.include_router(deliveries_router, prefix=settings.API_PREFIX)
 app.include_router(simulations_router, prefix=settings.API_PREFIX)
 app.include_router(live_router, prefix=settings.API_PREFIX)
+app.include_router(models_router, prefix=settings.API_PREFIX)
 
 
 @app.get("/", tags=["system"])

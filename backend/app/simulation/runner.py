@@ -223,6 +223,7 @@ class SimulationRunner:
         for result in results:
             try:
                 await self._live_event_broker.publish_simulation_tick(self.run_id, result)
+                await self._live_event_broker.publish_anomaly_evaluation(self.run_id, result)
                 for alarm in result.created_alarms:
                     await self._live_event_broker.publish_alarm_created(alarm)
             except Exception:

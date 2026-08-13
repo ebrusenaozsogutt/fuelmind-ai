@@ -20,7 +20,9 @@ from app.simulation.tick_result import SimulationTickResult
 from app.utils.enums import SourceType
 from app.services.data_quality_service import DataQualityService
 from app.services.alarm_engine import AlarmEngine
+from app.services.live_anomaly_service import LiveAnomalyService
 from app.repositories.alarm_repository import AlarmRepository
+from app.utils.enums import AnomalyType
 
 
 def _decimal(value: float) -> Decimal:
@@ -41,6 +43,9 @@ class TickPersistence:
         self._alarms = AlarmEngine(AlarmRepository(db))
         self._alarms_available = (
             inspect(db.get_bind()).has_table("alarms") if hasattr(db, "get_bind") else False
+        )
+        self._models_available = (
+            inspect(db.get_bind()).has_table("model_versions") if hasattr(db, "get_bind") else False
         )
 
     def persist(self, run_id: int, result: SimulationTickResult) -> bool:
@@ -265,11 +270,24 @@ class TickPersistence:
         """Keep alarms in the same transaction as the readings that explain them."""
         if not self._alarms_available:
             return []
-        return self._alarms.evaluate(
+        candidates = self._alarms.candidates(
             station_id=run.station_id, tanks=result.tank_results, pumps=result.pump_results,
             readings=readings, moment=result.simulation_time,
             delivery_tank_ids={item.tank_id for item in result.deliveries},
         )
+        if not self._models_available:
+            return self._alarms.raise_candidates(candidates)
+        result.ai_results = LiveAnomalyService(self.db).evaluate(readings, candidates)
+        by_target = {(item.entity_type, item.entity_id): item for item in result.ai_results}
+        for reading in readings:
+            target = ("PUMP", reading.pump_id) if reading.pump_id is not None else ("TANK", reading.tank_id)
+            ai_result = by_target.get(target)
+            if ai_result is None:
+                continue
+            reading.is_anomaly = ai_result.is_anomaly
+            reading.anomaly_score = None if ai_result.risk_score is None else _decimal(ai_result.risk_score)
+            reading.anomaly_type = None if ai_result.anomaly_type is None else AnomalyType(ai_result.anomaly_type)
+        return self._alarms.raise_candidates(candidates, by_target)
 
     def _update_tank_states(self, station_id: int, tank_states: list[object]) -> None:
         """Store the final physical level for each supplied in-memory tank state."""

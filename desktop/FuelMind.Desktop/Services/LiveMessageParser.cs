@@ -14,6 +14,7 @@ public sealed class LiveMessageParser(JsonSerializerOptions jsonOptions)
             {
                 "connection_ready" => Create<ConnectionReadyDto>(rawJson, envelope.EventType),
                 "simulation_tick" => Create<SimulationTickDto>(rawJson, envelope.EventType),
+                "anomaly_evaluation" => Create<AnomalyEvaluationDto>(rawJson, envelope.EventType),
                 "alarm_created" => Create<AlarmCreatedDto>(rawJson, envelope.EventType),
                 "ping" => Create<PingDto>(rawJson, envelope.EventType),
                 null or "" => LiveMessageParseResult.Invalid("Missing event_type."),

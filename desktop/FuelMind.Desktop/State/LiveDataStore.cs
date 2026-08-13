@@ -31,10 +31,12 @@ public sealed partial class LiveDataStore : ObservableObject
     [ObservableProperty] private int? _receivedSequence;
     public ObservableCollection<TankLiveDataDto> Tanks { get; } = [];
     public ObservableCollection<PumpLiveDataDto> Pumps { get; } = [];
-    public void Clear() => Dispatch(() => { LastMessageAt = null; LastSimulationTick = null; LastSequence = null; LastSimulationRunId = null; HasSequenceGap = false; ExpectedSequence = null; ReceivedSequence = null; ConnectedStationId = null; Tanks.Clear(); Pumps.Clear(); _liveChartDataService?.Clear(); });
+    public ObservableCollection<LiveAnomalyResultDto> AiResults { get; } = [];
+    public void Clear() => Dispatch(() => { LastMessageAt = null; LastSimulationTick = null; LastSequence = null; LastSimulationRunId = null; HasSequenceGap = false; ExpectedSequence = null; ReceivedSequence = null; ConnectedStationId = null; Tanks.Clear(); Pumps.Clear(); AiResults.Clear(); _liveChartDataService?.Clear(); });
     public void UpdateConnectionState(LiveConnectionState state) => Dispatch(() => ConnectionState = state);
     public void ApplyConnectionReady(ConnectionReadyDto ready) => Dispatch(() => { ConnectedStationId = ready.StationId; LastMessageAt = DateTimeOffset.UtcNow; });
     public void ApplySimulationTick(SimulationTickDto tick) => Dispatch(() => Apply(new LiveMessageParseResult("simulation_tick", tick, null, false)));
+    public void ApplyAnomalyEvaluation(AnomalyEvaluationDto evaluation) => Dispatch(() => Apply(new LiveMessageParseResult("anomaly_evaluation", evaluation, null, false)));
     private void Apply(LiveMessageParseResult result)
     {
         LastMessageAt = DateTimeOffset.UtcNow;
@@ -66,8 +68,25 @@ public sealed partial class LiveDataStore : ObservableObject
                     if (pump.Temperature is decimal temperature)
                         _liveChartDataService?.AddPoint(LiveChartDataService.GetPumpMetricKey(pump.PumpId, "temperature"), tick, (double)temperature);
                 }
-                Tanks.Clear(); foreach (var tank in tick.Tanks) Tanks.Add(tank);
-                Pumps.Clear(); foreach (var pump in tick.Pumps) Pumps.Add(pump);
+                AiResults.Clear(); foreach (var resultItem in tick.AiResults) AiResults.Add(resultItem);
+                Tanks.Clear(); foreach (var tank in tick.Tanks) { tank.AiAnalysis = tick.AiResults.FirstOrDefault(x => string.Equals(x.EntityType, "TANK", StringComparison.OrdinalIgnoreCase) && x.EntityId == tank.TankId); Tanks.Add(tank); }
+                Pumps.Clear(); foreach (var pump in tick.Pumps) { pump.AiAnalysis = tick.AiResults.FirstOrDefault(x => string.Equals(x.EntityType, "PUMP", StringComparison.OrdinalIgnoreCase) && x.EntityId == pump.PumpId); Pumps.Add(pump); }
+                break;
+            case AnomalyEvaluationDto evaluation:
+                AiResults.Clear(); foreach (var resultItem in evaluation.Results) AiResults.Add(resultItem);
+                foreach (var resultItem in evaluation.Results)
+                {
+                    if (string.Equals(resultItem.EntityType, "PUMP", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var index = Pumps.ToList().FindIndex(x => x.PumpId == resultItem.EntityId);
+                        if (index >= 0) { Pumps[index].AiAnalysis = resultItem; Pumps[index] = Pumps[index]; }
+                    }
+                    else if (string.Equals(resultItem.EntityType, "TANK", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var index = Tanks.ToList().FindIndex(x => x.TankId == resultItem.EntityId);
+                        if (index >= 0) { Tanks[index].AiAnalysis = resultItem; Tanks[index] = Tanks[index]; }
+                    }
+                }
                 break;
         }
     }
