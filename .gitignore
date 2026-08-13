@@ -47,3 +47,7 @@ backend/trained_models/*
 !backend/trained_models/.gitkeep
 reports/*
 !reports/.gitkeep
+
+# .NET build outputs
+**/bin/
+**/obj/
