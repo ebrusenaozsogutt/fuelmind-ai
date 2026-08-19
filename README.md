@@ -20,7 +20,7 @@ The system exposes management and simulation workflows through a FastAPI REST AP
 - [x] **Stage 6 — Desktop client:** .NET 8 WPF/MVVM monitoring and simulation-control client.
 - [x] **Stage 7 — Scenarios and alarms:** scenario scheduling, data-quality scoring, rule-based alarms, and desktop alarm centre.
 - [x] **Stage 8 — Planned:** Isolation Forest, feature engineering, hybrid rule + AI detection, explainability, and model registry workflows.
-- [ ] **Stage 9 — Planned:** seven-day demand forecasting, XGBoost regression, accuracy metrics, safety stock, and order recommendations.
+- [x] **Stage 9 — Planned:** seven-day demand forecasting, XGBoost regression, accuracy metrics, safety stock, and order recommendations.
 - [ ] **Stage 10 — Planned:** daily summaries, PDF/CSV reporting, packaging, final integration, and release validation.
 
 ## Key Features
