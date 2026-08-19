@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
+from dataclasses import replace
+from decimal import Decimal, ROUND_HALF_UP
 
+from sqlalchemy import inspect, select
 from sqlalchemy.orm import Session
-from sqlalchemy import inspect
 
 from app.models.delivery import Delivery
+from app.models.nozzle import Nozzle
+from app.models.probe_reading import ProbeReading
 from app.models.sale import Sale
 from app.models.sensor_reading import SensorReading
 from app.models.simulation_event import SimulationEvent
@@ -23,12 +26,23 @@ from app.services.alarm_engine import AlarmEngine
 from app.services.live_anomaly_service import LiveAnomalyService
 from app.repositories.alarm_repository import AlarmRepository
 from app.utils.enums import AnomalyType
+from app.services.commercial_sale_service import CommercialSaleService
 
 
 def _decimal(value: float) -> Decimal:
     """Convert generator floats through text to retain their intended decimal value."""
 
     return Decimal(str(value))
+
+
+_SALE_QUANTITY_PRECISION = Decimal("0.001")
+_MONEY_PRECISION = Decimal("0.01")
+
+
+def _sale_quantity(value: float) -> Decimal:
+    """Use the persisted sale precision for quantities, totals, and totalizers."""
+
+    return _decimal(value).quantize(_SALE_QUANTITY_PRECISION, rounding=ROUND_HALF_UP)
 
 
 class TickPersistence:
@@ -67,14 +81,17 @@ class TickPersistence:
                 return False
 
             readings = self._sensor_readings(run, result)
+            probe_readings = self._probe_readings(run, result, readings)
             sales = self._sales(run, result)
             deliveries = self._deliveries(run, result)
             events = self._events(run, result)
             self.db.add_all(readings)
+            self.db.add_all(probe_readings)
             self.db.add_all(sales)
             self.db.add_all(deliveries)
             self.db.add_all(events)
             result.created_alarms = self._evaluate_alarms(run, result, readings)
+            self._update_nozzle_totalizers(result.completed_sales)
             self._update_tank_levels(result)
             run.current_simulation_time = result.simulation_time
             run.sequence_number = result.sequence_number
@@ -109,17 +126,26 @@ class TickPersistence:
                 (result, self._sensor_readings(run, result)) for result in results
             ]
             readings = [reading for _, group in readings_by_result for reading in group]
+            probe_readings = [
+                reading
+                for result, group in readings_by_result
+                for reading in self._probe_readings(run, result, group)
+            ]
             sales = [sale for result in results for sale in self._sales(run, result)]
             deliveries = [
                 delivery for result in results for delivery in self._deliveries(run, result)
             ]
             events = [event for result in results for event in self._events(run, result)]
             self.db.add_all(readings)
+            self.db.add_all(probe_readings)
             self.db.add_all(sales)
             self.db.add_all(deliveries)
             self.db.add_all(events)
             for item, group in readings_by_result:
                 item.created_alarms = self._evaluate_alarms(run, item, group)
+            self._update_nozzle_totalizers(
+                [sale for result in results for sale in result.completed_sales]
+            )
             last_tank_states = {
                 tank.tank_id: tank
                 for result in results
@@ -190,15 +216,89 @@ class TickPersistence:
             reading.data_quality_score, reading.quality_flags_json = quality.score, quality.flags
         return readings
 
+    @staticmethod
+    def _probe_readings(
+        run: SimulationRun,
+        result: SimulationTickResult,
+        sensor_readings: list[SensorReading],
+    ) -> list[ProbeReading]:
+        """Persist the same post-scenario tank measurement seen by each probe."""
+
+        tank_readings = {
+            reading.tank_id: reading
+            for reading in sensor_readings
+            if reading.pump_id is None and reading.tank_id is not None
+        }
+        readings: list[ProbeReading] = []
+        enriched_observations = []
+        for observation in result.probe_observations:
+            source = tank_readings.get(observation.tank_id)
+            if source is None:
+                raise ValueError(
+                    f"Probe tank {observation.tank_id} has no sensor reading."
+                )
+            readings.append(
+                ProbeReading(
+                    probe_id=observation.probe_id,
+                    tank_id=observation.tank_id,
+                    simulation_run_id=run.id,
+                    sequence_number=result.sequence_number,
+                    reading_timestamp=result.simulation_time,
+                    fuel_height_mm=_decimal(observation.fuel_height_mm),
+                    fuel_volume_liters=_decimal(observation.fuel_volume_liters),
+                    water_height_mm=_decimal(observation.water_height_mm),
+                    water_volume_liters=_decimal(observation.water_volume_liters),
+                    temperature_celsius=_decimal(observation.temperature_celsius),
+                    data_quality_score=source.data_quality_score,
+                    quality_flags_json=list(source.quality_flags_json),
+                    source_type=SourceType.SIMULATION,
+                )
+            )
+            enriched_observations.append(
+                replace(
+                    observation,
+                    data_quality_score=float(source.data_quality_score),
+                    quality_flags=tuple(source.quality_flags_json),
+                )
+            )
+        result.probe_observations = enriched_observations
+        return readings
+
     def _sales(self, run: SimulationRun, result: SimulationTickResult) -> list[Sale]:
         final_levels = {item.tank_id: item.true_level_liters for item in result.tank_results}
         delivery_levels = {
             item.tank_id: item.level_before_liters for item in result.deliveries
         }
-        return [
-            self._sale(run, completed, final_levels, delivery_levels)
-            for completed in result.completed_sales
-        ]
+        totalizers: dict[int, Decimal] = {}
+        sales: list[Sale] = []
+        for completed in result.completed_sales:
+            start_totalizer = None
+            end_totalizer = None
+            if completed.nozzle_id is not None:
+                nozzle_id = completed.nozzle_id
+                if nozzle_id not in totalizers:
+                    nozzle = self.db.scalar(
+                        select(Nozzle).where(Nozzle.id == nozzle_id).with_for_update()
+                    )
+                    if nozzle is None:
+                        raise ValueError(f"Nozzle {nozzle_id} was not found.")
+                    totalizers[nozzle_id] = Decimal(nozzle.totalizer_liters)
+                start_totalizer = totalizers[nozzle_id]
+                end_totalizer = start_totalizer + _sale_quantity(
+                    completed.dispensed_quantity_liters
+                )
+                totalizers[nozzle_id] = end_totalizer
+            sales.append(
+                self._sale(
+                    run,
+                    completed,
+                    final_levels,
+                    delivery_levels,
+                    start_totalizer=start_totalizer,
+                    end_totalizer=end_totalizer,
+                )
+            )
+        return sales
 
     def _sale(
         self,
@@ -206,11 +306,36 @@ class TickPersistence:
         completed: ActiveSaleState,
         final_levels: dict[int, float],
         delivery_levels: dict[int, float],
+        *,
+        start_totalizer: Decimal | None,
+        end_totalizer: Decimal | None,
     ) -> Sale:
         level_after = delivery_levels.get(
             completed.tank_id, final_levels[completed.tank_id]
         )
-        quantity = completed.dispensed_quantity_liters
+        quantity = _sale_quantity(completed.dispensed_quantity_liters)
+        commercial_values: dict[str, object] = {}
+        unit_price = _decimal(completed.unit_price)
+        total_amount = (quantity * unit_price).quantize(
+            _MONEY_PRECISION, rounding=ROUND_HALF_UP
+        )
+        if completed.commercial_snapshot is not None:
+            snapshot = completed.commercial_snapshot
+            total_amount = CommercialSaleService(self.db).finalize_simulation_payment(
+                snapshot, quantity
+            )
+            unit_price = snapshot.applied_unit_price
+            commercial_values = {
+                "customer_id": snapshot.customer_id,
+                "fleet_id": snapshot.fleet_id,
+                "fleet_group_id": snapshot.fleet_group_id,
+                "vehicle_id": snapshot.vehicle_id,
+                "driver_id": snapshot.driver_id,
+                "fuel_card_id": snapshot.fuel_card_id,
+                "list_unit_price": snapshot.list_unit_price,
+                "discount_rate": snapshot.discount_rate,
+                "payment_type": snapshot.payment_type,
+            }
         return Sale(
             station_id=completed.station_id,
             tank_id=completed.tank_id,
@@ -221,15 +346,21 @@ class TickPersistence:
             # database identifier is global, so scope it by its persisted run.
             simulation_sale_id=f"{run.id}-{completed.sale_id}",
             sale_timestamp=completed.last_updated_at,
-            quantity_liters=_decimal(quantity),
-            unit_price=_decimal(completed.unit_price),
-            total_amount=_decimal(quantity * completed.unit_price),
+            quantity_liters=quantity,
+            unit_price=unit_price,
+            total_amount=total_amount,
+            nozzle_id=completed.nozzle_id,
+            attendant_id=completed.attendant_id,
+            shift_id=completed.shift_id,
+            start_totalizer_liters=start_totalizer,
+            end_totalizer_liters=end_totalizer,
             duration_seconds=int(
                 max(0, (completed.last_updated_at - completed.started_at).total_seconds())
             ),
-            level_before=_decimal(level_after + quantity),
+            level_before=_decimal(level_after) + quantity,
             level_after=_decimal(level_after),
             is_anomaly=False,
+            **commercial_values,
         )
 
     def _deliveries(self, run: SimulationRun, result: SimulationTickResult) -> list[Delivery]:
@@ -246,6 +377,26 @@ class TickPersistence:
             )
             for item in result.deliveries
         ]
+
+    def _update_nozzle_totalizers(
+        self, completed_sales: list[ActiveSaleState]
+    ) -> None:
+        """Add completed sale quantities in the current sale-persistence transaction."""
+
+        deltas: dict[int, Decimal] = {}
+        for sale in completed_sales:
+            if sale.nozzle_id is None:
+                continue
+            deltas[sale.nozzle_id] = deltas.get(sale.nozzle_id, Decimal("0")) + _sale_quantity(
+                sale.dispensed_quantity_liters
+            )
+        for nozzle_id, delta in deltas.items():
+            nozzle = self.db.scalar(
+                select(Nozzle).where(Nozzle.id == nozzle_id).with_for_update()
+            )
+            if nozzle is None:
+                raise ValueError(f"Nozzle {nozzle_id} was not found.")
+            nozzle.totalizer_liters += delta
 
     @staticmethod
     def _events(run: SimulationRun, result: SimulationTickResult) -> list[SimulationEvent]:

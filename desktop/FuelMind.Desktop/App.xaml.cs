@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace FuelMind.Desktop;
 
@@ -74,6 +75,7 @@ public partial class App : Application
         {
             PropertyNameCaseInsensitive = true,
             PropertyNamingPolicy = null,
+            NumberHandling = JsonNumberHandling.AllowReadingFromString,
         });
         services.AddSingleton<LiveMessageParser>();
         services.AddSingleton<DetailNavigationService>();
@@ -83,15 +85,16 @@ public partial class App : Application
             _.GetRequiredService<LiveChartDataService>()));
         services.AddSingleton<LiveWebSocketService>();
         services.AddLogging(builder => builder.AddDebug());
+        services.AddSingleton<AuthState>();
+        services.AddTransient<AuthenticationHandler>();
         services.AddHttpClient<ApiClient>((serviceProvider, client) =>
         {
             var apiSettings = serviceProvider.GetRequiredService<IOptions<ApiSettings>>().Value;
             client.BaseAddress = new Uri(apiSettings.BaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
             client.DefaultRequestHeaders.Accept.Add(
                 new MediaTypeWithQualityHeaderValue("application/json"));
-        });
+        }).AddHttpMessageHandler<AuthenticationHandler>();
 
-        services.AddSingleton<AuthState>();
         services.AddSingleton<LoginPreferenceStore>();
         services.AddSingleton<AuthService>();
         services.AddSingleton<AlarmService>();
@@ -100,16 +103,30 @@ public partial class App : Application
         services.AddSingleton<IModelService>(provider => provider.GetRequiredService<ModelService>());
         services.AddSingleton<StationService>();
         services.AddSingleton<IStationService>(provider => provider.GetRequiredService<StationService>());
+        services.AddSingleton<CommercialService>();
+        services.AddSingleton<ICommercialService>(provider => provider.GetRequiredService<CommercialService>());
+        services.AddSingleton<IReportService, ReportService>();
+        services.AddSingleton<IOperationsService, OperationsService>();
+        services.AddSingleton<IFaultService, FaultService>();
         services.AddSingleton<LoginViewModel>();
         services.AddSingleton<LiveMonitoringViewModel>();
+        services.AddSingleton<FieldTopologyViewModel>();
         services.AddSingleton<TanksViewModel>();
         services.AddSingleton<PumpsViewModel>();
         services.AddSingleton<DashboardViewModel>();
         services.AddSingleton<SimulatorViewModel>();
         services.AddSingleton<AlarmsViewModel>();
+        services.AddSingleton<EndOfDayAlarmReportViewModel>();
         services.AddSingleton<ModelManagementViewModel>();
         services.AddSingleton<TankDetailViewModel>();
         services.AddSingleton<PumpDetailViewModel>();
+        services.AddSingleton<CustomersViewModel>();
+        services.AddSingleton<FuelCardsViewModel>();
+        services.AddSingleton<FuelPricesViewModel>();
+        services.AddSingleton<SalesHistoryViewModel>();
+        services.AddSingleton<ReportsViewModel>();
+        services.AddSingleton<FaultsViewModel>();
+        services.AddSingleton<AttendantsViewModel>();
         services.AddSingleton<MainViewModel>();
         services.AddSingleton<MainWindow>();
         services.AddTransient<ModelManagementView>();

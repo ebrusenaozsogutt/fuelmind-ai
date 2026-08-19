@@ -1,0 +1,40 @@
+<UserControl x:Class="FuelMind.Desktop.Views.EndOfDayAlarmReportView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Grid Margin="28">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+    </Grid.RowDefinitions>
+    <StackPanel>
+      <TextBlock FontSize="28" FontWeight="SemiBold" Text="Gün Sonu Alarm Raporu"/>
+      <TextBlock Margin="0,4,0,0" Foreground="{DynamicResource MutedForegroundBrush}" Text="Seçili günün açık, çözülmüş ve yanlış alarm olarak işaretlenmiş tüm kayıtları."/>
+      <StackPanel Margin="0,12,0,0" Orientation="Horizontal">
+        <TextBlock Margin="0,0,8,0" VerticalAlignment="Center" Text="Tarih"/>
+        <DatePicker SelectedDate="{Binding ReportDate}"/>
+        <Button Margin="8,0,0,0" Command="{Binding LoadCommand}" Content="Raporu Getir"/>
+      </StackPanel>
+      <TextBlock Margin="0,8,0,0" Foreground="IndianRed" Text="{Binding ErrorMessage}"/>
+    </StackPanel>
+    <Grid Grid.Row="1" Margin="0,16,0,0">
+      <DataGrid AutoGenerateColumns="False" IsReadOnly="True" ItemsSource="{Binding Alarms}" RowHeight="36">
+        <DataGrid.Columns>
+          <DataGridTextColumn Header="Tespit" Width="1.2*" Binding="{Binding DetectedAt, StringFormat={}{0:dd.MM.yyyy HH:mm}}"/>
+          <DataGridTextColumn Header="Ekipman" Width="1*" Binding="{Binding TargetDisplay}"/>
+          <DataGridTextColumn Header="Alarm" Width="1.2*" Binding="{Binding AlarmTypeDisplay}"/>
+          <DataGridTextColumn Header="Seviye" Width="0.8*" Binding="{Binding SeverityDisplay}"/>
+          <DataGridTextColumn Header="Durum" Width="1*" Binding="{Binding StatusDisplay}"/>
+          <DataGridTextColumn Header="Açıklama" Width="2.4*" Binding="{Binding DescriptionDisplay}"/>
+          <DataGridTextColumn Header="Olası Neden" Width="1.8*" Binding="{Binding ProbableCausesDisplay}"/>
+          <DataGridTextColumn Header="Önerilen Aksiyon" Width="2*" Binding="{Binding RecommendedActionDisplay}"/>
+          <DataGridTextColumn Header="Kaynak" Width="1.3*" Binding="{Binding DecisionSourceDisplay}"/>
+        </DataGrid.Columns>
+      </DataGrid>
+      <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource MutedForegroundBrush}" Text="Bu tarih için alarm kaydı bulunmuyor.">
+        <TextBlock.Style>
+          <Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding IsEmpty}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style>
+        </TextBlock.Style>
+      </TextBlock>
+    </Grid>
+  </Grid>
+</UserControl>

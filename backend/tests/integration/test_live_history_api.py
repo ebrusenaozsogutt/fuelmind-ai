@@ -142,6 +142,8 @@ def test_live_status_uses_latest_station_readings_and_missing_station_is_404(liv
     assert payload["latest_sequence"] == 11
     assert payload["tanks"][0]["station_id"] == data["station"].id
     assert payload["pumps"][0]["station_id"] == data["station"].id
+    assert payload["controllers"] == payload["ports"] == payload["probes"] == []
+    assert payload["nozzles"] == []
     assert client.get("/api/stations/99999/live-status").status_code == 404
 
 

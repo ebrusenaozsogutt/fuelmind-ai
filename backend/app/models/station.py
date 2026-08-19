@@ -13,6 +13,8 @@ from app.utils.datetime_utils import utc_now
 
 if TYPE_CHECKING:
     from app.models.alarm import Alarm
+    from app.models.commercial import FuelCardAllowedStation, FuelPrice
+    from app.models.device_controller import DeviceController
     from app.models.forecast import Forecast
     from app.models.order_recommendation import OrderRecommendation
     from app.models.pump import Pump
@@ -48,6 +50,9 @@ class Station(Base):
     pumps: Mapped[list[Pump]] = relationship(
         back_populates="station", cascade="save-update, merge"
     )
+    device_controllers: Mapped[list[DeviceController]] = relationship(
+        back_populates="station", cascade="save-update, merge"
+    )
     sales: Mapped[list[Sale]] = relationship(back_populates="station")
     sensor_readings: Mapped[list[SensorReading]] = relationship(
         back_populates="station"
@@ -61,3 +66,7 @@ class Station(Base):
     order_recommendations: Mapped[list[OrderRecommendation]] = relationship(
         back_populates="station"
     )
+    allowed_fuel_cards: Mapped[list[FuelCardAllowedStation]] = relationship(
+        back_populates="station"
+    )
+    fuel_prices: Mapped[list[FuelPrice]] = relationship(back_populates="station")

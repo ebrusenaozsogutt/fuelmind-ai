@@ -27,6 +27,7 @@ public class ModelVersionDto
     [JsonPropertyName("normal_false_positive_rate")] public double? NormalFalsePositiveRate { get; init; }
     [JsonPropertyName("latest_sensor_reading_at")] public DateTimeOffset? LatestSensorReadingAt { get; init; }
     [JsonPropertyName("new_sensor_rows_since_training")] public long NewSensorRowsSinceTraining { get; init; }
+    [JsonPropertyName("training_data_summary")] public JsonElement? TrainingDataSummary { get; init; }
 }
 
 public sealed class TrainAnomalyModelRequestDto

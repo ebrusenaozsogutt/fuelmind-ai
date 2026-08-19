@@ -13,8 +13,13 @@ class AlarmRepository:
     def get(self, alarm_id: int) -> Alarm | None:
         return self.db.get(Alarm, alarm_id)
 
-    def list(self) -> list[Alarm]:
-        return list(self.db.scalars(select(Alarm).order_by(Alarm.detected_at.desc())))
+    def list(self, *, include_false_positives: bool = False) -> list[Alarm]:
+        statement = select(Alarm)
+        # False positives are audit records, not active operational work.  Keep
+        # them durable while making the default queue safe to act on.
+        if not include_false_positives:
+            statement = statement.where(Alarm.status != AlarmStatus.FALSE_POSITIVE)
+        return list(self.db.scalars(statement.order_by(Alarm.detected_at.desc())))
 
     def active_for_key(
         self, station_id: int, target_type: str, target_id: int, alarm_type: str

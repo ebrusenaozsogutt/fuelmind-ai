@@ -12,9 +12,11 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.exceptions import BusinessRuleError, NotFoundError
 from app.models.pump import Pump
+from app.models.nozzle import Nozzle
 from app.models.simulation_run import SimulationRun
 from app.repositories.simulation_scenario_repository import SimulationScenarioRepository
 from app.models.tank import Tank
+from app.models.tank_probe import TankProbe
 from app.repositories.simulation_run_repository import SimulationRunRepository
 from app.simulation.clock import SimulationClock
 from app.simulation.config import SimulationConfig
@@ -25,10 +27,18 @@ from app.simulation.random_source import RandomSource
 from app.simulation.runner import SimulationRunner
 from app.simulation.sales_generator import SalesGenerator
 from app.simulation.scenario_engine import ScenarioEngine
-from app.simulation.state import PumpState, StationSimulationState, TankState
+from app.simulation.state import (
+    NozzleState,
+    PumpState,
+    StationSimulationState,
+    TankProbeState,
+    TankState,
+)
 from app.simulation.tank_generator import TankGenerator
 from app.simulation.tick_engine import TickEngine
 from app.simulation.validators import SimulationValidator
+from app.services.commercial_sale_service import CommercialSaleService
+from app.services.operations_selection_service import OperationsSelectionService
 
 if TYPE_CHECKING:
     from app.live.event_broker import LiveEventBroker
@@ -53,6 +63,14 @@ def build_simulation_runner(
         state, fuel_codes = _build_station_state(session, run)
         runtime_config = config or simulation_config_from_run(run)
         scenarios_available = inspect(session.get_bind()).has_table("simulation_scenarios")
+        operations_available = all(
+            inspect(session.get_bind()).has_table(table_name)
+            for table_name in (
+                "attendants",
+                "shifts",
+                "attendant_shift_assignments",
+            )
+        )
         clock = SimulationClock(runtime_config, run.current_simulation_time)
         random_source = RandomSource(runtime_config.random_seed)
         prices = {code: 1.0 for code in fuel_codes.values()}
@@ -81,6 +99,14 @@ def build_simulation_runner(
             sales_generator=SalesGenerator(
                 random_source=random_source,
                 demand_profile=DemandProfile(),
+                commercial_selector=(
+                    _commercial_selector(session_factory)
+                    if run.mode.value == "REALTIME"
+                    else None
+                ),
+                operations_selector=(
+                    _operations_selector(session_factory) if operations_available else None
+                ),
             ),
             tank_generator=TankGenerator(random_source=random_source),
             pump_generator=PumpGenerator(random_source=random_source),
@@ -100,6 +126,34 @@ def build_simulation_runner(
         )
     finally:
         session.close()
+
+
+def _commercial_selector(session_factory: SessionFactory):
+    """Open a short-lived read session for a simulated sale-start decision."""
+
+    def select_context(**values):
+        selection_session = session_factory()
+        try:
+            return CommercialSaleService(selection_session).prepare_simulation_sale(
+                **values
+            )
+        finally:
+            selection_session.close()
+
+    return select_context
+
+
+def _operations_selector(session_factory: SessionFactory):
+    """Open a short-lived read session for a virtual-time attendant decision."""
+
+    def select_context(**values):
+        selection_session = session_factory()
+        try:
+            return OperationsSelectionService(selection_session).select_for_sale(**values)
+        finally:
+            selection_session.close()
+
+    return select_context
 
 
 def simulation_config_from_run(run: SimulationRun) -> SimulationConfig:
@@ -174,4 +228,42 @@ def _build_station_state(
                 is_active=pump.is_active,
             )
         )
+    inspector = inspect(session.get_bind())
+    if inspector.has_table("tank_probes"):
+        probes = list(
+            session.scalars(
+                select(TankProbe).where(
+                    TankProbe.tank_id.in_(tuple(state.tanks)),
+                    TankProbe.is_active.is_(True),
+                )
+            )
+        )
+        for probe in probes:
+            state.add_active_probe(
+                TankProbeState(
+                    probe_id=probe.id,
+                    tank_id=probe.tank_id,
+                    status=probe.status,
+                    is_active=probe.is_active,
+                )
+            )
+    if inspector.has_table("nozzles"):
+        nozzles = list(
+            session.scalars(
+                select(Nozzle).where(
+                    Nozzle.pump_id.in_(tuple(state.pumps)),
+                    Nozzle.is_active.is_(True),
+                )
+            )
+        )
+        for nozzle in nozzles:
+            state.add_nozzle(
+                NozzleState(
+                    nozzle_id=nozzle.id,
+                    pump_id=nozzle.pump_id,
+                    fuel_type_id=nozzle.fuel_type_id,
+                    status=nozzle.status,
+                    is_active=nozzle.is_active,
+                )
+            )
     return state, fuel_codes

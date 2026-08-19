@@ -80,7 +80,19 @@ class AnomalyTrainingService:
             reference_profile=reference_profile,
             training_start_date=timestamps.min().date(),
             training_end_date=timestamps.max().date(),
-            extra_metadata={"training_station_id": request.station_id},
+            extra_metadata={
+                "training_station_id": request.station_id,
+                # Keep the complete selection trace beside the immutable model
+                # version so a registry row can be audited without rerunning a
+                # query against subsequently changed operational data.
+                "training_data_summary": {
+                    "dataset": asdict(dataset.summary),
+                    "feature_engineering": asdict(engineered.summary),
+                    "model_family": family,
+                    "source_types": [source.value for source in request.source_types]
+                    if request.source_types is not None else None,
+                },
+            },
         )
         return AnomalyTrainingResult(
             registry_result=registry_result,

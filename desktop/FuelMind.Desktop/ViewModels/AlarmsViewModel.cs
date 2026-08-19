@@ -4,6 +4,7 @@ using System.Windows.Data;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using FuelMind.Desktop.Dtos.Alarms;
+using FuelMind.Desktop.Dtos.Faults;
 using FuelMind.Desktop.Dtos.Live;
 using FuelMind.Desktop.Services;
 
@@ -28,24 +29,33 @@ public sealed partial class AlarmsViewModel : ObservableObject
     private AlarmDto? _selectedAlarm;
 
     [ObservableProperty] private string? _resolutionNote;
-    [ObservableProperty] private string _statusFilter = "ALL";
+    [ObservableProperty] private string _statusFilter = "ACTIVE";
     [ObservableProperty] private string _severityFilter = "ALL";
     [ObservableProperty] private string _typeFilter = "ALL";
     [ObservableProperty] private bool _isLoading;
     [ObservableProperty] private bool _isDetailLoading;
+    [ObservableProperty] private bool _isFaultLoading;
+    [ObservableProperty] private FaultDto? _relatedFault;
     [ObservableProperty] private string? _lastError;
 
     public IReadOnlyList<string> StatusFilters { get; } =
-        ["ALL", "NEW", "ACKNOWLEDGED", "INVESTIGATING", "RESOLVED", "FALSE_POSITIVE"];
+        ["ACTIVE", "ALL", "NEW", "ACKNOWLEDGED", "INVESTIGATING", "RESOLVED", "FALSE_POSITIVE"];
     public IReadOnlyList<string> SeverityFilters { get; } =
         ["ALL", "LOW", "MEDIUM", "HIGH", "CRITICAL"];
     public IReadOnlyList<string> TypeFilters { get; } =
         ["ALL", "LOW_FLOW", "HIGH_MOTOR_CURRENT", "HIGH_PRESSURE", "HIGH_WATER_LEVEL",
          "LOW_DATA_QUALITY", "SENSOR_STUCK", "TANK_SALES_MISMATCH", "SENSOR_SPIKE", "AI_ANOMALY"];
 
-    public AlarmsViewModel(IAlarmService service, LiveWebSocketService socket)
+    public string FaultRelationText => RelatedFault is null
+        ? "İlişkili arıza kaydı yok"
+        : $"İlişkili Arıza: #{RelatedFault.Id}\nKod: {RelatedFault.FaultCode}\nDurum: {RelatedFault.Status}";
+
+    private readonly IFaultService? _faultService;
+
+    public AlarmsViewModel(IAlarmService service, LiveWebSocketService socket, IFaultService? faultService = null)
     {
         _service = service;
+        _faultService = faultService;
         FilteredAlarms = CollectionViewSource.GetDefaultView(Alarms);
         FilteredAlarms.Filter = MatchesFilter;
         socket.MessageReceived += (_, result) =>
@@ -86,6 +96,13 @@ public sealed partial class AlarmsViewModel : ObservableObject
         }
     }
 
+    public void ApplyNavigationFilter(AlarmNavigationFilter filter)
+    {
+        StatusFilter = "ACTIVE";
+        SeverityFilter = filter.Severity ?? "ALL";
+        TypeFilter = "ALL";
+    }
+
     [RelayCommand]
     private Task RefreshAsync() => LoadAsync();
 
@@ -113,12 +130,49 @@ public sealed partial class AlarmsViewModel : ObservableObject
         if (value is null)
         {
             IsDetailLoading = false;
+            RelatedFault = null;
             return;
         }
 
+        RelatedFault = null;
+        _ = LoadRelatedFaultAsync(value.Id);
         _detailCancellation = new CancellationTokenSource();
         _ = LoadSelectedAlarmDetailAsync(value.Id, _detailCancellation.Token);
     }
+
+    private async Task LoadRelatedFaultAsync(int alarmId)
+    {
+        if (_faultService is null)
+        {
+            return;
+        }
+
+        IsFaultLoading = true;
+        try
+        {
+            var faults = await _faultService.ListAsync($"?alarm_id={alarmId}");
+            if (SelectedAlarm?.Id == alarmId)
+            {
+                RelatedFault = faults.FirstOrDefault();
+            }
+        }
+        catch (Exception exception)
+        {
+            if (SelectedAlarm?.Id == alarmId)
+            {
+                LastError = exception is ApiException api ? api.Message : exception.Message;
+            }
+        }
+        finally
+        {
+            if (SelectedAlarm?.Id == alarmId)
+            {
+                IsFaultLoading = false;
+            }
+        }
+    }
+
+    partial void OnRelatedFaultChanged(FaultDto? value) => OnPropertyChanged(nameof(FaultRelationText));
 
     internal async Task LoadSelectedAlarmDetailAsync(int alarmId, CancellationToken token = default)
     {
@@ -250,10 +304,13 @@ public sealed partial class AlarmsViewModel : ObservableObject
     partial void OnTypeFilterChanged(string value) => FilteredAlarms.Refresh();
 
     private bool MatchesFilter(object value) => value is AlarmDto alarm
-        && (StatusFilter == "ALL" || string.Equals(alarm.Status, StatusFilter, StringComparison.OrdinalIgnoreCase))
+        && (StatusFilter == "ALL" ||
+            (StatusFilter == "ACTIVE" && IsActiveStatus(alarm.Status)) ||
+            string.Equals(alarm.Status, StatusFilter, StringComparison.OrdinalIgnoreCase))
         && (SeverityFilter == "ALL" || string.Equals(alarm.Severity, SeverityFilter, StringComparison.OrdinalIgnoreCase))
         && (TypeFilter == "ALL" || string.Equals(alarm.AlarmType, TypeFilter, StringComparison.OrdinalIgnoreCase));
 
+    private static bool IsActiveStatus(string? status) => status is "NEW" or "ACKNOWLEDGED" or "INVESTIGATING";
     private bool HasStatus(params string[] statuses) => SelectedAlarm?.Status is { } status
         && statuses.Contains(status, StringComparer.OrdinalIgnoreCase);
 

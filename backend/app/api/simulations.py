@@ -213,6 +213,19 @@ def list_simulations(
     )
 
 
+@router.get("/active", response_model=SimulationRunRead | None)
+def get_active_simulation(
+    station_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    manager: Annotated[SimulationManager, Depends(get_simulation_manager)],
+    _: Annotated[User, Depends(require_operator_or_admin)],
+) -> object | None:
+    """Return only a manager-owned realtime run, never a DB-only lifecycle row."""
+
+    run_id = manager.active_run_id_for_station(station_id)
+    return None if run_id is None else _get_run(db, run_id)
+
+
 @router.get("/{run_id}", response_model=SimulationRunRead)
 def get_simulation(
     run_id: int,

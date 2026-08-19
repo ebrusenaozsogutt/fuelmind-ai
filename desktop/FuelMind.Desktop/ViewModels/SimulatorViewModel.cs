@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http;
+using System.Net.WebSockets;
 using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -18,15 +19,30 @@ public sealed partial class SimulatorViewModel : ObservableObject
     private readonly ApiClient _apiClient;
     private readonly ILogger<SimulatorViewModel> _logger;
     private readonly LiveDataStore _liveDataStore;
+    private readonly LiveWebSocketService _liveWebSocketService;
 
-    public SimulatorViewModel(ApiClient apiClient, ILogger<SimulatorViewModel> logger, LiveDataStore liveDataStore)
+    public SimulatorViewModel(
+        ApiClient apiClient,
+        ILogger<SimulatorViewModel> logger,
+        LiveDataStore liveDataStore,
+        LiveWebSocketService liveWebSocketService)
     {
         _apiClient = apiClient;
         _logger = logger;
         _liveDataStore = liveDataStore;
+        _liveWebSocketService = liveWebSocketService;
+        StationId = _liveDataStore.SelectedStationId;
+        _liveDataStore.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(LiveDataStore.SelectedStationId) &&
+                StationId != _liveDataStore.SelectedStationId)
+            {
+                StationId = _liveDataStore.SelectedStationId;
+            }
+        };
     }
 
-    [ObservableProperty, NotifyCanExecuteChangedFor(nameof(CreateSimulationCommand)), NotifyCanExecuteChangedFor(nameof(PrepareDemoStockCommand)), NotifyCanExecuteChangedFor(nameof(StartCommand)), NotifyCanExecuteChangedFor(nameof(PauseCommand)), NotifyCanExecuteChangedFor(nameof(ResumeCommand)), NotifyCanExecuteChangedFor(nameof(StopCommand))] private int _stationId = 1;
+    [ObservableProperty, NotifyCanExecuteChangedFor(nameof(CreateSimulationCommand)), NotifyCanExecuteChangedFor(nameof(PrepareDemoStockCommand)), NotifyCanExecuteChangedFor(nameof(StartCommand)), NotifyCanExecuteChangedFor(nameof(PauseCommand)), NotifyCanExecuteChangedFor(nameof(ResumeCommand)), NotifyCanExecuteChangedFor(nameof(StopCommand))] private int _stationId;
     [ObservableProperty, NotifyCanExecuteChangedFor(nameof(CreateSimulationCommand))] private int _tickIntervalMilliseconds = 1000;
     [ObservableProperty, NotifyCanExecuteChangedFor(nameof(CreateSimulationCommand))] private int _simulationStepSeconds = 5;
     [ObservableProperty, NotifyCanExecuteChangedFor(nameof(CreateSimulationCommand))] private double _speedMultiplier = 1;
@@ -69,12 +85,10 @@ public sealed partial class SimulatorViewModel : ObservableObject
             _logger.LogInformation("Demo stock command started");
             _logger.LogInformation("Selected station: {StationId}", StationId);
 
-            var runs = await _apiClient.GetAsync<List<SimulationRunDto>>("simulations");
-            var activeRun = runs.FirstOrDefault(run =>
-                run.StationId == StationId &&
-                string.Equals(run.Mode, "REALTIME", StringComparison.OrdinalIgnoreCase) &&
-                (string.Equals(run.Status, "RUNNING", StringComparison.OrdinalIgnoreCase) ||
-                 string.Equals(run.Status, "PAUSED", StringComparison.OrdinalIgnoreCase)));
+            // The backend manager owns the only authoritative runner registry.
+            // Do not infer activity from persisted historical run rows.
+            var activeRun = await _apiClient.GetAsync<SimulationRunDto?>(
+                $"simulations/active?station_id={StationId}");
             if (activeRun is not null)
             {
                 _logger.LogInformation("Active realtime run found: {RunId}/{Status}", activeRun.Id, activeRun.Status);
@@ -180,6 +194,11 @@ public sealed partial class SimulatorViewModel : ObservableObject
             var updatedRun = await _apiClient.PostAsync<SimulationRunDto>($"simulations/{runId}/{action}");
             if (action == "start" || CurrentRun?.Id == updatedRun.Id) CurrentRun = updatedRun;
             if (ActiveRun?.Id == updatedRun.Id) ActiveRun = updatedRun;
+            if (action == "start" &&
+                string.Equals(updatedRun.Status, "RUNNING", StringComparison.OrdinalIgnoreCase))
+            {
+                await SelectStationAndConnectLiveAsync(updatedRun.StationId);
+            }
             await RefreshActiveRunCoreAsync();
             if (string.Equals(updatedRun.Status, "FAILED", StringComparison.OrdinalIgnoreCase))
             {
@@ -188,8 +207,28 @@ public sealed partial class SimulatorViewModel : ObservableObject
         }
         catch (ApiException exception) { LastError = GetUserMessage(exception, failureMessage); }
         catch (HttpRequestException) { LastError = "Sunucuya ulaşılamadı."; }
+        catch (WebSocketException) { LastError = "Canlı istasyon bağlantısı kurulamadı."; }
         catch (TaskCanceledException) { LastError = "İstek zaman aşımına uğradı."; }
         finally { IsBusy = false; }
+    }
+
+    private async Task SelectStationAndConnectLiveAsync(int stationId)
+    {
+        _liveDataStore.SelectedStationId = stationId;
+        if (StationId != stationId) StationId = stationId;
+
+        if (_liveWebSocketService.ConnectionState == LiveConnectionState.Connected &&
+            _liveWebSocketService.ConnectedStationId == stationId)
+        {
+            return;
+        }
+
+        if (_liveWebSocketService.ConnectionState is not LiveConnectionState.Disconnected)
+        {
+            await _liveWebSocketService.DisconnectAsync();
+        }
+
+        await _liveWebSocketService.ConnectAsync(stationId);
     }
 
     private async Task ExecuteAsync(string failureMessage, Func<Task<SimulationRunDto>> operation)
@@ -217,11 +256,12 @@ public sealed partial class SimulatorViewModel : ObservableObject
 
     private async Task RefreshActiveRunCoreAsync()
     {
-        var runs = await _apiClient.GetAsync<List<SimulationRunDto>>("simulations");
-        ActiveRun = runs.FirstOrDefault(run => run.StationId == StationId &&
-            string.Equals(run.Mode, "REALTIME", StringComparison.OrdinalIgnoreCase) &&
-            (string.Equals(run.Status, "RUNNING", StringComparison.OrdinalIgnoreCase) ||
-             string.Equals(run.Status, "PAUSED", StringComparison.OrdinalIgnoreCase)));
+        if (CurrentRun is not null)
+        {
+            CurrentRun = await _apiClient.GetAsync<SimulationRunDto>($"simulations/{CurrentRun.Id}");
+        }
+        ActiveRun = await _apiClient.GetAsync<SimulationRunDto?>(
+            $"simulations/active?station_id={StationId}");
     }
 
     private bool CanStart() => !IsBusy && ActiveRun is null && string.Equals(CurrentRun?.Status, "CREATED", StringComparison.OrdinalIgnoreCase);

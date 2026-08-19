@@ -21,6 +21,8 @@ from app.utils.enums import UserRole
 
 if TYPE_CHECKING:
     from app.models.alarm import Alarm
+    from app.models.commercial import FuelPrice
+    from app.models.fault import Fault
 
 
 class User(Base):
@@ -52,3 +54,5 @@ class User(Base):
     )
 
     resolved_alarms: Mapped[list[Alarm]] = relationship(back_populates="resolver_user")
+    resolved_faults: Mapped[list[Fault]] = relationship(back_populates="resolver_user")
+    fuel_prices: Mapped[list[FuelPrice]] = relationship(back_populates="created_by_user")

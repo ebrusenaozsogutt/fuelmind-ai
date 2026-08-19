@@ -9,6 +9,8 @@ from app.repositories.pump_repository import PumpRepository
 from app.repositories.sensor_reading_repository import SensorReadingRepository
 from app.repositories.station_repository import StationRepository
 from app.repositories.tank_repository import TankRepository
+from app.schemas.live_data import SensorHistoryRead
+from app.services.live_topology_service import LiveTopologyService, live_topology_payload
 from app.utils.datetime_utils import utc_now
 
 
@@ -37,7 +39,28 @@ class LiveHistoryService:
         tanks = {item.tank_id: item for item in items if item.tank_id is not None}
         pumps = {item.pump_id: item for item in items if item.pump_id is not None}
         latest = items[-1] if items else None
-        return {"station_id": station_id, "latest_sequence": latest.sequence_number if latest else None, "latest_reading_time": latest.reading_timestamp if latest else None, "tanks": list(tanks.values()), "pumps": list(pumps.values())}
+        topology = LiveTopologyService(self.db).snapshot(
+            station_id, include_latest_probe_readings=True
+        )
+        return {
+            "station_id": station_id,
+            "latest_sequence": latest.sequence_number if latest else None,
+            "latest_reading_time": latest.reading_timestamp if latest else None,
+            "tanks": list(tanks.values()),
+            "pumps": [
+                self._pump_reading(item, topology.pump_port_ids.get(item.pump_id))
+                for item in pumps.values()
+            ],
+            **live_topology_payload(topology),
+        }
+
+    @staticmethod
+    def _pump_reading(item: object, communication_port_id: int | None) -> dict[str, object]:
+        """Add the persisted pump-to-port relationship without changing readings."""
+
+        payload = SensorHistoryRead.model_validate(item).model_dump()
+        payload["communication_port_id"] = communication_port_id
+        return payload
 
     @staticmethod
     def filters(from_time: datetime | None, to_time: datetime | None, limit: int) -> dict[str, object]:

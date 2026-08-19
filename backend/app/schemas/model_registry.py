@@ -65,6 +65,7 @@ class ModelVersionRead(BaseModel):
     normal_false_positive_rate: float | None
     latest_sensor_reading_at: datetime | None
     new_sensor_rows_since_training: int
+    training_data_summary: dict[str, object] | None = None
 
 
 class AnomalyModelTrainingRead(ModelVersionRead):

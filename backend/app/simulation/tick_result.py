@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from app.simulation.delivery_generator import DeliveryResult
+from app.simulation.field_device import ProbeObservation
 from app.simulation.sales_generator import SaleAdvanceResult
 from app.simulation.state import ActiveSaleState, PumpState, TankState
 
@@ -49,6 +50,7 @@ class SimulationTickResult:
     active_scenarios: list[dict[str, object]] = field(default_factory=list)
     created_alarms: list[object] = field(default_factory=list)
     ai_results: list[object] = field(default_factory=list)
+    probe_observations: list[ProbeObservation] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if self.station_id <= 0 or self.sequence_number <= 0:

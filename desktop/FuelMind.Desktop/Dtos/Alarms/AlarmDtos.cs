@@ -37,6 +37,9 @@ public sealed class AlarmDto
     public string AlarmTypeDisplay => AlarmUiText.AlarmType(AlarmType);
     public string DescriptionDisplay => AlarmUiText.Description(AlarmType, Description);
     public string RecommendedActionDisplay => AlarmUiText.RecommendedAction(AlarmType, RecommendedAction);
+    public string ProbableCausesDisplay => string.Join("; ", ProbableCauses?
+        .Select(cause => cause.DisplayDescription)
+        .Where(text => !string.IsNullOrWhiteSpace(text)) ?? []);
     public string StatusDisplay => AlarmUiText.Status(Status);
     public string SeverityDisplay => AlarmUiText.Severity(Severity);
     public IReadOnlyList<string> FindingsDisplay => Findings?

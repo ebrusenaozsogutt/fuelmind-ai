@@ -1,3 +1,4 @@
+using System.Text.Json;
 using FuelMind.Desktop.Dtos.Models;
 
 namespace FuelMind.Desktop.ViewModels;
@@ -28,9 +29,10 @@ public sealed class ModelVersionItemViewModel
     public int? ScenarioTotalCount => Model.ScenarioTotalCount;
     public DateTimeOffset? LatestSensorReadingAt => Model.LatestSensorReadingAt;
     public long NewSensorRowsSinceTraining => Model.NewSensorRowsSinceTraining;
+    public JsonElement? TrainingDataSummary => Model.TrainingDataSummary;
 
-    public string StatusText => IsActive ? "ACTIVE" : "INACTIVE";
-    public string ArtifactStatusText => ArtifactAvailable ? "READY" : "MISSING";
+    public string StatusText => IsActive ? "Aktif" : "Pasif";
+    public string ArtifactStatusText => ArtifactAvailable ? "Hazır" : "Eksik";
     public bool CanActivate => !IsActive && ArtifactAvailable;
     public string ModelDisplayName => ModelType.Replace('_', ' ').ToUpperInvariant();
     public string ModelFriendlyName => ModelType.Equals("isolation_forest", StringComparison.OrdinalIgnoreCase)
@@ -63,6 +65,28 @@ public sealed class ModelVersionItemViewModel
     public string LatestSensorReadingText => LatestSensorReadingAt is DateTimeOffset latest
         ? latest.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
         : "Veri bulunamadı";
+    public string TrainingDataTraceText
+    {
+        get
+        {
+            if (TrainingDataSummary is not JsonElement { ValueKind: JsonValueKind.Object } summary
+                || !summary.TryGetProperty("dataset", out var dataset)
+                || !summary.TryGetProperty("feature_engineering", out var features))
+            {
+                return "Eski model için eğitim iz bilgisi bulunmuyor.";
+            }
+            var candidate = Int(features, $"{ModelFamily}_candidate_rows");
+            var dropped = Int(dataset, "total_examined") - Int(dataset, "included")
+                + Int(features, "dropped_rows_missing_history_or_values")
+                + Int(features, "dropped_rows_non_finite");
+            return $"Ham: {Int(dataset, "raw_station_rows"):N0} · Filtre sonrası: {Int(dataset, "included"):N0} · "
+                + $"Aday: {candidate:N0} · Eğitim: {TrainingRowCount:N0} · Atılan: {dropped:N0}";
+        }
+    }
+    private static int Int(JsonElement item, string property) =>
+        item.TryGetProperty(property, out var value) && value.TryGetInt32(out var number)
+            ? number : 0;
+
     public bool HasNewSensorData => NewSensorRowsSinceTraining > 0;
     public string NewSensorDataText => HasNewSensorData
         ? $"{NewSensorRowsSinceTraining:N0} yeni sensör kaydı mevcut. Model yeniden eğitilebilir."

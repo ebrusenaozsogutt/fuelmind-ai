@@ -75,6 +75,7 @@ def _read_model(
         "normal_false_positive_rate": validation.get("normal_false_positive_rate"),
         "latest_sensor_reading_at": latest_sensor_reading_at,
         "new_sensor_rows_since_training": new_sensor_rows_since_training,
+        "training_data_summary": metadata.get("training_data_summary"),
     }
     if diagnostics is not None:
         return AnomalyModelTrainingRead(

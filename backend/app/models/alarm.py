@@ -24,6 +24,7 @@ from app.database import Base
 from app.utils.enums import AlarmSeverity, AlarmStatus
 
 if TYPE_CHECKING:
+    from app.models.fault import Fault
     from app.models.pump import Pump
     from app.models.station import Station
     from app.models.tank import Tank
@@ -107,3 +108,4 @@ class Alarm(Base):
     tank: Mapped[Tank | None] = relationship(back_populates="alarms")
     pump: Mapped[Pump | None] = relationship(back_populates="alarms")
     resolver_user: Mapped[User | None] = relationship(back_populates="resolved_alarms")
+    faults: Mapped[list[Fault]] = relationship(back_populates="alarm")

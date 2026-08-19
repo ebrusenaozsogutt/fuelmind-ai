@@ -7,19 +7,37 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api.auth import router as auth_router
+from app.api.audit_logs import router as audit_logs_router
 from app.api.alarms import router as alarms_router
+from app.api.communication_ports import router as communication_ports_router
+from app.api.customer_authorized_persons import router as customer_authorized_persons_router
+from app.api.customers import router as customers_router
 from app.api.deliveries import router as deliveries_router
 from app.api.dashboard import router as dashboard_router
+from app.api.device_controllers import router as device_controllers_router
+from app.api.driver_vehicle_assignments import router as driver_vehicle_assignments_router
+from app.api.drivers import router as drivers_router
 from app.api.error_handlers import register_exception_handlers
 from app.api.fuel_types import router as fuel_types_router
+from app.api.faults import router as faults_router
+from app.api.fuel_cards import router as fuel_cards_router
+from app.api.fuel_prices import router as fuel_prices_router
+from app.api.fleet_groups import router as fleet_groups_router
+from app.api.fleets import router as fleets_router
 from app.api.live import router as live_router
 from app.api.models import router as models_router
+from app.api.nozzles import router as nozzles_router
+from app.api.operations import router as operations_router
 from app.api.pumps import router as pumps_router
 from app.api.sales import router as sales_router
+from app.api.reports import router as reports_router
+from app.api.sensor_readings import router as sensor_readings_router
 from app.api.simulations import router as simulations_router
 from app.api.stations import router as stations_router
 from app.api.tanks import router as tanks_router
+from app.api.tank_probes import router as tank_probes_router
 from app.api.users import router as users_router
+from app.api.vehicles import router as vehicles_router
 from app.config import settings
 from app.live.connection_manager import ConnectionManager
 from app.live.event_broker import LiveEventBroker
@@ -59,14 +77,32 @@ app = FastAPI(
 )
 register_exception_handlers(app)
 app.include_router(auth_router, prefix=settings.API_PREFIX)
+app.include_router(audit_logs_router, prefix=settings.API_PREFIX)
 app.include_router(alarms_router, prefix=settings.API_PREFIX)
+app.include_router(communication_ports_router, prefix=settings.API_PREFIX)
+app.include_router(customers_router, prefix=settings.API_PREFIX)
+app.include_router(customer_authorized_persons_router, prefix=settings.API_PREFIX)
+app.include_router(fleets_router, prefix=settings.API_PREFIX)
+app.include_router(fleet_groups_router, prefix=settings.API_PREFIX)
+app.include_router(vehicles_router, prefix=settings.API_PREFIX)
+app.include_router(drivers_router, prefix=settings.API_PREFIX)
+app.include_router(driver_vehicle_assignments_router, prefix=settings.API_PREFIX)
 app.include_router(fuel_types_router, prefix=settings.API_PREFIX)
+app.include_router(faults_router, prefix=settings.API_PREFIX)
+app.include_router(fuel_cards_router, prefix=settings.API_PREFIX)
+app.include_router(fuel_prices_router, prefix=settings.API_PREFIX)
 app.include_router(stations_router, prefix=settings.API_PREFIX)
 app.include_router(dashboard_router, prefix=settings.API_PREFIX)
+app.include_router(device_controllers_router, prefix=settings.API_PREFIX)
 app.include_router(tanks_router, prefix=settings.API_PREFIX)
+app.include_router(tank_probes_router, prefix=settings.API_PREFIX)
 app.include_router(pumps_router, prefix=settings.API_PREFIX)
+app.include_router(nozzles_router, prefix=settings.API_PREFIX)
+app.include_router(operations_router, prefix=settings.API_PREFIX)
 app.include_router(users_router, prefix=settings.API_PREFIX)
 app.include_router(sales_router, prefix=settings.API_PREFIX)
+app.include_router(reports_router, prefix=settings.API_PREFIX)
+app.include_router(sensor_readings_router, prefix=settings.API_PREFIX)
 app.include_router(deliveries_router, prefix=settings.API_PREFIX)
 app.include_router(simulations_router, prefix=settings.API_PREFIX)
 app.include_router(live_router, prefix=settings.API_PREFIX)

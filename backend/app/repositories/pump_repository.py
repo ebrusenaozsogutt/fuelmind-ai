@@ -24,6 +24,16 @@ class PumpRepository:
             select(Pump).where(Pump.station_id == station_id, Pump.code == code)
         )
 
+    def get_by_port_and_device_address(
+        self, communication_port_id: int, device_address: str
+    ) -> Pump | None:
+        return self.db.scalar(
+            select(Pump).where(
+                Pump.communication_port_id == communication_port_id,
+                Pump.device_address == device_address,
+            )
+        )
+
     def create(self, values: dict[str, object]) -> Pump:
         entity = Pump(**values)
         self.db.add(entity)

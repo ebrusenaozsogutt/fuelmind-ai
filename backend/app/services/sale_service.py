@@ -8,6 +8,8 @@ from app.exceptions import BusinessRuleError, NotFoundError
 from app.models.pump import Pump
 from app.models.sale import Sale
 from app.models.tank import Tank
+from app.models.operations import Attendant, AttendantShiftAssignment, Shift
+from sqlalchemy import select
 from app.repositories.fuel_type_repository import FuelTypeRepository
 from app.repositories.pump_repository import PumpRepository
 from app.repositories.sale_repository import SaleRepository
@@ -32,8 +34,18 @@ class SaleService:
             raise NotFoundError("Sale not found.")
         return entity
 
-    def list(self) -> list[Sale]:
-        return self.repository.list()
+    def list(
+        self,
+        *,
+        customer_id: int | None = None,
+        vehicle_id: int | None = None,
+        fuel_card_id: int | None = None,
+    ) -> list[Sale]:
+        return self.repository.list(
+            customer_id=customer_id,
+            vehicle_id=vehicle_id,
+            fuel_card_id=fuel_card_id,
+        )
 
     def create(self, payload: SaleCreate) -> Sale:
         """Create a sale and decrement its tank in one database transaction."""
@@ -61,6 +73,7 @@ class SaleService:
             if not fuel_type.is_active:
                 raise BusinessRuleError("Fuel type is inactive.")
             self._validate_relationships(payload, tank, pump)
+            self._validate_operations(payload, payload.station_id)
             if tank.current_level_liters < payload.quantity_liters:
                 raise BusinessRuleError(
                     "Tank does not contain enough fuel for this sale."
@@ -101,3 +114,36 @@ class SaleService:
             raise BusinessRuleError("Sale pump must be connected to the sale tank.")
         if tank.fuel_type_id != payload.fuel_type_id:
             raise BusinessRuleError("Sale fuel type must match the tank fuel type.")
+
+    def _validate_operations(self, payload: SaleCreate, station_id: int) -> None:
+        if payload.attendant_id is None and payload.shift_id is None:
+            return
+        attendant = (
+            self.db.get(Attendant, payload.attendant_id)
+            if payload.attendant_id
+            else None
+        )
+        shift = self.db.get(Shift, payload.shift_id) if payload.shift_id else None
+        if (
+            attendant is None
+            or shift is None
+            or not attendant.is_active
+            or not shift.is_active
+        ):
+            raise BusinessRuleError(
+                "Sale attendant and shift must exist and be active."
+            )
+        if attendant.station_id != station_id or shift.station_id != station_id:
+            raise BusinessRuleError(
+                "Sale attendant and shift must match the sale station."
+            )
+        assigned = self.db.scalar(
+            select(AttendantShiftAssignment.id).where(
+                AttendantShiftAssignment.attendant_id == attendant.id,
+                AttendantShiftAssignment.shift_id == shift.id,
+                AttendantShiftAssignment.station_id == station_id,
+                AttendantShiftAssignment.is_active.is_(True),
+            )
+        )
+        if assigned is None:
+            raise BusinessRuleError("Attendant is not assigned to the selected shift.")

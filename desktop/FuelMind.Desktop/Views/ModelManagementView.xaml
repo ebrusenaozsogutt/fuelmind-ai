@@ -338,6 +338,10 @@
                         </StackPanel>
                     </WrapPanel>
 
+                    <TextBlock Margin="0,4,0,0"
+                               Foreground="{DynamicResource MutedForegroundBrush}"
+                               Text="{Binding SelectedModel.TrainingDataTraceText}"
+                               TextWrapping="Wrap" />
                     <TextBlock Style="{StaticResource DetailGroupTitleStyle}" Text="DAVRANIŞ VE DOĞRULAMA" />
                     <WrapPanel>
                         <StackPanel Width="210" Margin="0,0,14,8">

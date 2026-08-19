@@ -12,6 +12,7 @@ public sealed class StationDto
     [JsonPropertyName("address")] public required string Address { get; init; }
     [JsonPropertyName("is_active")] public bool IsActive { get; init; }
     [JsonPropertyName("created_at")] public DateTimeOffset CreatedAt { get; init; }
+    public string DisplayName => $"{Code} - {Name}";
 }
 
 public sealed class StationCreateRequestDto
@@ -32,4 +33,13 @@ public sealed class StationUpdateRequestDto
     [JsonPropertyName("district")] public string? District { get; init; }
     [JsonPropertyName("address")] public string? Address { get; init; }
     [JsonPropertyName("is_active")] public bool? IsActive { get; init; }
+}
+
+public sealed class FuelTypeDto
+{
+    [JsonPropertyName("id")] public int Id { get; init; }
+    [JsonPropertyName("code")] public required string Code { get; init; }
+    [JsonPropertyName("name")] public required string Name { get; init; }
+    [JsonPropertyName("is_active")] public bool IsActive { get; init; }
+    public string DisplayName => Name;
 }

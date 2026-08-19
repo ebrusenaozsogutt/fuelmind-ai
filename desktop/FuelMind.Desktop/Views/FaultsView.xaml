@@ -1,0 +1,49 @@
+<UserControl x:Class="FuelMind.Desktop.Views.FaultsView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Margin="28">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+        <StackPanel>
+            <TextBlock FontSize="28" FontWeight="SemiBold" Text="Arıza Yönetimi"/>
+            <TextBlock Foreground="#FFB4B4" Text="{Binding ErrorMessage}" TextWrapping="Wrap"/>
+            <TextBlock Foreground="LightGreen" Text="{Binding SuccessMessage}" TextWrapping="Wrap"/>
+        </StackPanel>
+        <WrapPanel Grid.Row="1" Margin="0,12,0,10">
+            <StackPanel Margin="0,0,8,8"><TextBlock Text="İstasyon"/><ComboBox Style="{StaticResource DarkComboBoxStyle}" Width="150" ItemsSource="{Binding Stations}" SelectedItem="{Binding FilterStation}" DisplayMemberPath="DisplayName"/></StackPanel>
+            <StackPanel Margin="0,0,8,8"><TextBlock Text="Arıza tipi"/><ComboBox Style="{StaticResource DarkComboBoxStyle}" Width="145" ItemsSource="{Binding FaultTypes}" SelectedItem="{Binding FilterFaultType}"/></StackPanel>
+            <StackPanel Margin="0,0,8,8"><TextBlock Text="Arıza kodu"/><ComboBox Style="{StaticResource DarkComboBoxStyle}" Width="195" ItemsSource="{Binding FaultCodes}" SelectedItem="{Binding FilterFaultCode}"/></StackPanel>
+            <StackPanel Margin="0,0,8,8"><TextBlock Text="Durum"/><ComboBox Style="{StaticResource DarkComboBoxStyle}" Width="130" ItemsSource="{Binding Statuses}" SelectedItem="{Binding Status}"/></StackPanel>
+            <StackPanel Margin="0,0,8,8"><TextBlock Text="Hedef tipi"/><ComboBox Style="{StaticResource DarkComboBoxStyle}" Width="130" ItemsSource="{Binding TargetTypes}" SelectedItem="{Binding FilterTargetType}"/></StackPanel>
+            <StackPanel Margin="0,0,8,8"><TextBlock Text="Tespit başlangıç"/><DatePicker Width="135" SelectedDate="{Binding DetectedFrom}"/></StackPanel>
+            <StackPanel Margin="0,0,8,8"><TextBlock Text="Tespit bitiş"/><DatePicker Width="135" SelectedDate="{Binding DetectedTo}"/></StackPanel>
+            <Button Margin="0,19,8,0" Content="Filtrele" Command="{Binding ApplyFiltersCommand}"/>
+            <Button Margin="0,19,8,0" Content="Filtreleri Temizle" Command="{Binding ClearFiltersCommand}"/>
+            <Button Margin="0,19,0,0" Content="Yenile" Command="{Binding RefreshCommand}"/>
+        </WrapPanel>
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="3*"/><ColumnDefinition Width="2*"/><ColumnDefinition Width="2*"/></Grid.ColumnDefinitions>
+            <DataGrid ItemsSource="{Binding Faults}" SelectedItem="{Binding SelectedFault}" AutoGenerateColumns="False" IsReadOnly="True" Margin="0,0,12,0"><DataGrid.Columns>
+                <DataGridTextColumn Header="ID" Binding="{Binding Id}"/><DataGridTextColumn Header="İstasyon" Binding="{Binding StationId}"/><DataGridTextColumn Header="Tip" Binding="{Binding FaultType}"/><DataGridTextColumn Header="Kod" Binding="{Binding FaultCode}"/><DataGridTextColumn Header="Durum" Binding="{Binding Status}"/><DataGridTextColumn Header="Tespit" Binding="{Binding DetectedAt}"/>
+            </DataGrid.Columns></DataGrid>
+            <ScrollViewer Grid.Column="1" Margin="6,0,12,0"><StackPanel>
+                <TextBlock FontSize="18" FontWeight="SemiBold" Text="{Binding SelectedFault.Title, TargetNullValue=Arıza seçin}" TextWrapping="Wrap"/>
+                <TextBlock Margin="0,10,0,0" Text="{Binding SelectedFault.Description}" TextWrapping="Wrap"/><TextBlock Margin="0,10,0,0" Text="{Binding SelectedFault.Cause}" TextWrapping="Wrap"/>
+                <TextBlock Margin="0,10,0,0" Text="{Binding SelectedFault.TargetType}"/><TextBlock Text="{Binding SelectedFault.FaultCode}"/><TextBlock Text="{Binding SelectedFault.ResolvedAt}"/><TextBlock Text="{Binding SelectedFault.ResolvedBy}"/>
+                <TextBlock Margin="0,14,0,4" Text="Çözüm notu"/><TextBox Height="72" AcceptsReturn="True" TextWrapping="Wrap" Text="{Binding ResolutionNote,UpdateSourceTrigger=PropertyChanged}"/>
+                <WrapPanel Margin="0,10,0,0"><Button Content="İncelemeye Al" Command="{Binding InvestigateCommand}" IsEnabled="{Binding CanInvestigate}"/><Button Margin="8,0,0,0" Content="Çözüldü" Command="{Binding ResolveCommand}" IsEnabled="{Binding CanResolve}"/></WrapPanel>
+            </StackPanel></ScrollViewer>
+            <ScrollViewer Grid.Column="2"><StackPanel>
+                <TextBlock FontSize="18" FontWeight="SemiBold" Text="Manuel Arıza Oluştur"/>
+                <TextBlock Margin="0,10,0,2" Text="İstasyon"/><ComboBox Style="{StaticResource DarkComboBoxStyle}" ItemsSource="{Binding Stations}" SelectedItem="{Binding CreateStation}" DisplayMemberPath="DisplayName"/>
+                <TextBlock Margin="0,8,0,2" Text="İlişkili alarm (opsiyonel)"/><ComboBox Style="{StaticResource DarkComboBoxStyle}" ItemsSource="{Binding RelatedAlarms}" SelectedItem="{Binding RelatedAlarm}" DisplayMemberPath="TitleDisplay"/>
+                <TextBlock Margin="0,8,0,2" Text="Hedef tipi"/><ComboBox Style="{StaticResource DarkComboBoxStyle}" ItemsSource="{Binding TargetTypes}" SelectedItem="{Binding TargetType}"/>
+                <TextBlock Margin="0,8,0,2" Text="Hedef"/><ComboBox Style="{StaticResource DarkComboBoxStyle}" ItemsSource="{Binding Targets}" SelectedItem="{Binding SelectedTarget}" DisplayMemberPath="DisplayName"/>
+                <TextBlock Foreground="#FFB4B4" Text="{Binding TargetHint}" TextWrapping="Wrap"/>
+                <TextBlock Margin="0,8,0,2" Text="Arıza tipi"/><ComboBox Style="{StaticResource DarkComboBoxStyle}" ItemsSource="{Binding FaultTypes}" SelectedItem="{Binding CreateFaultType}"/>
+                <TextBlock Margin="0,8,0,2" Text="Arıza kodu"/><ComboBox Style="{StaticResource DarkComboBoxStyle}" ItemsSource="{Binding FaultCodes}" SelectedItem="{Binding CreateFaultCode}"/>
+                <TextBlock Margin="0,8,0,2" Text="Başlık"/><TextBox Text="{Binding Title,UpdateSourceTrigger=PropertyChanged}"/>
+                <TextBlock Margin="0,8,0,2" Text="Açıklama"/><TextBox Height="52" AcceptsReturn="True" TextWrapping="Wrap" Text="{Binding Description,UpdateSourceTrigger=PropertyChanged}"/>
+                <TextBlock Margin="0,8,0,2" Text="Neden"/><TextBox Height="52" AcceptsReturn="True" TextWrapping="Wrap" Text="{Binding Cause,UpdateSourceTrigger=PropertyChanged}"/>
+                <Button Margin="0,12,0,0" Content="Arıza Oluştur" Command="{Binding CreateCommand}"/>
+            </StackPanel></ScrollViewer>
+        </Grid>
+    </Grid>
+</UserControl>

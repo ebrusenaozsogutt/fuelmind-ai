@@ -2,11 +2,13 @@ using System.Text.Json.Serialization;
 
 namespace FuelMind.Desktop.Dtos.Pumps;
 
+[JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
 public sealed class PumpDto
 {
     [JsonPropertyName("id")] public int Id { get; init; }
     [JsonPropertyName("station_id")] public int StationId { get; init; }
     [JsonPropertyName("tank_id")] public int TankId { get; init; }
+    [JsonPropertyName("communication_port_id")] public int? CommunicationPortId { get; init; }
     [JsonPropertyName("code")] public required string Code { get; init; }
     [JsonPropertyName("status")] public required string Status { get; init; }
     [JsonPropertyName("nominal_flow_rate")] public decimal NominalFlowRate { get; init; }

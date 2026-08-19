@@ -125,6 +125,9 @@ async def test_start_routes_commands_and_stop_cleans_registry(
     runner = await manager.start_run(1)
     await asyncio.wait_for(runner.started.wait(), timeout=1)
     assert manager.is_active(1)
+    store.runs[1].status = SimulationStatus.RUNNING
+    assert manager.active_run_id_for_station(10) == 1
+    assert manager.active_run_id_for_station(20) is None
     await manager.pause_run(1)
     await manager.resume_run(1)
     await manager.stop_run(1)
@@ -133,6 +136,7 @@ async def test_start_routes_commands_and_stop_cleans_registry(
     assert runner.resume_calls == 1
     assert runner.stop_calls == 1
     assert not manager.is_active(1)
+    assert manager.active_run_id_for_station(10) is None
     assert manager.get_runner(1) is None
     assert len(store.created) == 1
 
@@ -154,7 +158,7 @@ async def test_concurrent_start_creates_only_one_task(
 
 
 @pytest.mark.asyncio
-async def test_station_realtime_conflict_and_different_station(
+async def test_station_realtime_conflict_uses_owned_runner_not_stale_database_row(
     manager_parts: tuple[SimulationManager, SimpleNamespace],
 ) -> None:
     manager, store = manager_parts
@@ -178,13 +182,16 @@ async def test_station_realtime_conflict_and_different_station(
     )
     store.ignored_run_id = 3
 
-    with pytest.raises(BusinessRuleError):
-        await manager.start_run(3)
-
-    store.runs.pop(4)
-    store.ignored_run_id = 2
-    runner = await manager.start_run(2)
+    # A persisted RUNNING row without a manager-owned runner is stale and must
+    # not lock the station after process recovery.
+    runner = await manager.start_run(3)
     await asyncio.wait_for(runner.started.wait(), timeout=1)
+    assert manager.active_run_id_for_station(10) is None
+
+    # The actual registry entry still protects the station immediately, even
+    # before the fake runner has persisted its RUNNING transition.
+    with pytest.raises(BusinessRuleError):
+        await manager.start_run(4)
     await manager.shutdown()
 
 

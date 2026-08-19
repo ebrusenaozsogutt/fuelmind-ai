@@ -25,6 +25,8 @@ from app.utils.enums import PumpStatus
 
 if TYPE_CHECKING:
     from app.models.alarm import Alarm
+    from app.models.communication_port import CommunicationPort
+    from app.models.nozzle import Nozzle
     from app.models.sale import Sale
     from app.models.sensor_reading import SensorReading
     from app.models.station import Station
@@ -59,7 +61,13 @@ class Pump(Base):
     tank_id: Mapped[int] = mapped_column(
         ForeignKey("tanks.id", ondelete="RESTRICT"), index=True, nullable=False
     )
+    communication_port_id: Mapped[int | None] = mapped_column(
+        ForeignKey("communication_ports.id", ondelete="RESTRICT"),
+        index=True,
+        nullable=True,
+    )
     code: Mapped[str] = mapped_column(String(32), nullable=False)
+    device_address: Mapped[str | None] = mapped_column(String(100), nullable=True)
     status: Mapped[PumpStatus] = mapped_column(
         SqlEnum(
             PumpStatus,
@@ -92,8 +100,12 @@ class Pump(Base):
     # that this pump and its assigned tank belong to the same station.
     station: Mapped[Station] = relationship(back_populates="pumps")
     tank: Mapped[Tank] = relationship(back_populates="pumps")
+    communication_port: Mapped[CommunicationPort | None] = relationship(
+        back_populates="pumps"
+    )
     sales: Mapped[list[Sale]] = relationship(back_populates="pump")
     sensor_readings: Mapped[list[SensorReading]] = relationship(back_populates="pump")
     alarms: Mapped[list[Alarm]] = relationship(back_populates="pump")
+    nozzles: Mapped[list[Nozzle]] = relationship(back_populates="pump")
 
     # Fuel type is deliberately not duplicated here; use pump.tank.fuel_type.

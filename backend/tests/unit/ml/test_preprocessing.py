@@ -163,6 +163,11 @@ def test_time_station_and_source_filters_are_applied_in_database(dataset_db) -> 
 
     assert result.dataframe["sequence_number"].tolist() == [2]
     assert result.summary.source_type_distribution == {"MANUAL": 1}
+    assert result.summary.raw_station_rows == 3
+    assert result.summary.rows_after_date_filter == 1
+    assert result.summary.rows_after_source_filter == 1
+    assert result.summary.excluded_date == 2
+    assert result.summary.excluded_source == 0
 
 
 def test_results_are_chronological_and_non_finite_values_are_excluded(dataset_db) -> None:

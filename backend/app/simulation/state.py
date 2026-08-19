@@ -1,11 +1,18 @@
 """In-memory state models used by simulation runtime components."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from datetime import datetime
 from math import isfinite
 from numbers import Real
+from typing import TYPE_CHECKING
 
 from app.utils.enums import PumpStatus
+from app.utils.enums import NozzleStatus, ProbeStatus
+
+if TYPE_CHECKING:
+    from app.services.commercial_sale_service import CommercialSaleSnapshot
 
 _EPSILON = 1e-9
 
@@ -276,6 +283,12 @@ class ActiveSaleState:
     dispensed_quantity_liters: float
     unit_price: float
     last_updated_at: datetime | None = None
+    nozzle_id: int | None = None
+    commercial_snapshot: CommercialSaleSnapshot | None = None
+    attendant_id: int | None = None
+    attendant_name: str | None = None
+    shift_id: int | None = None
+    shift_name: str | None = None
 
     def __post_init__(self) -> None:
         self.sale_id = _required_code(self.sale_id, "sale_id")
@@ -291,6 +304,18 @@ class ActiveSaleState:
             self.dispensed_quantity_liters, "dispensed_quantity_liters"
         )
         self.unit_price = _non_negative_float(self.unit_price, "unit_price")
+        if self.nozzle_id is not None:
+            self.nozzle_id = _positive_id(self.nozzle_id, "nozzle_id")
+        if self.attendant_id is not None:
+            self.attendant_id = _positive_id(self.attendant_id, "attendant_id")
+        if self.shift_id is not None:
+            self.shift_id = _positive_id(self.shift_id, "shift_id")
+        if (self.attendant_id is None) != (self.shift_id is None):
+            raise ValueError("attendant_id and shift_id must be supplied together.")
+        if self.attendant_name is not None:
+            self.attendant_name = _required_code(self.attendant_name, "attendant_name")
+        if self.shift_name is not None:
+            self.shift_name = _required_code(self.shift_name, "shift_name")
         if self.dispensed_quantity_liters > self.target_quantity_liters + _EPSILON:
             raise ValueError("dispensed_quantity_liters cannot exceed target quantity.")
         self.last_updated_at = _aware_time(
@@ -340,6 +365,8 @@ class StationSimulationState:
     tanks: dict[int, TankState] = field(default_factory=dict)
     pumps: dict[int, PumpState] = field(default_factory=dict)
     active_sales: dict[int, ActiveSaleState] = field(default_factory=dict)
+    active_probes_by_tank: dict[int, "TankProbeState"] = field(default_factory=dict)
+    nozzles_by_pump: dict[int, list["NozzleState"]] = field(default_factory=dict)
     sequence_number: int = 0
 
     def __post_init__(self) -> None:
@@ -367,6 +394,32 @@ class StationSimulationState:
         if pump.fuel_type_id != tank.fuel_type_id:
             raise ValueError("Pump fuel type must match its tank fuel type.")
         self.pumps[pump.pump_id] = pump
+
+    def add_active_probe(self, probe: "TankProbeState") -> None:
+        """Register the one persisted active probe associated with a tank."""
+
+        self.get_tank(probe.tank_id)
+        if probe.tank_id in self.active_probes_by_tank:
+            raise ValueError("Tank already has an active probe in simulation state.")
+        self.active_probes_by_tank[probe.tank_id] = probe
+
+    def add_nozzle(self, nozzle: "NozzleState") -> None:
+        """Register an eligible-or-ineligible nozzle for its owning pump."""
+
+        pump = self.get_pump(nozzle.pump_id)
+        if nozzle.fuel_type_id != pump.fuel_type_id:
+            raise ValueError("Nozzle fuel type must match its pump fuel type.")
+        self.nozzles_by_pump.setdefault(nozzle.pump_id, []).append(nozzle)
+
+    def available_nozzles(self, pump_id: int) -> list["NozzleState"]:
+        """Return stable-order nozzles available for a new sale on one pump."""
+
+        self.get_pump(pump_id)
+        return [
+            nozzle
+            for nozzle in self.nozzles_by_pump.get(pump_id, [])
+            if nozzle.is_active and nozzle.status == NozzleStatus.AVAILABLE
+        ]
 
     def get_tank(self, tank_id: int) -> TankState:
         """Return a registered tank or raise a clear KeyError."""
@@ -424,3 +477,37 @@ class StationSimulationState:
 
         self.sequence_number += 1
         return self.sequence_number
+
+
+@dataclass(frozen=True)
+class TankProbeState:
+    """Persisted probe identity and operational status needed by a tick."""
+
+    probe_id: int
+    tank_id: int
+    status: ProbeStatus
+    is_active: bool
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "probe_id", _positive_id(self.probe_id, "probe_id"))
+        object.__setattr__(self, "tank_id", _positive_id(self.tank_id, "tank_id"))
+        object.__setattr__(self, "status", ProbeStatus(self.status))
+
+
+@dataclass(frozen=True)
+class NozzleState:
+    """Persisted nozzle identity and availability needed by a tick."""
+
+    nozzle_id: int
+    pump_id: int
+    fuel_type_id: int
+    status: NozzleStatus
+    is_active: bool
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "nozzle_id", _positive_id(self.nozzle_id, "nozzle_id"))
+        object.__setattr__(self, "pump_id", _positive_id(self.pump_id, "pump_id"))
+        object.__setattr__(
+            self, "fuel_type_id", _positive_id(self.fuel_type_id, "fuel_type_id")
+        )
+        object.__setattr__(self, "status", NozzleStatus(self.status))

@@ -17,8 +17,9 @@ router = APIRouter(prefix="/alarms", tags=["alarms"])
 def list_alarms(
     db: Annotated[Session, Depends(get_db)],
     _: Annotated[User, Depends(require_operator_or_admin)],
+    include_false_positives: bool = False,
 ):
-    return AlarmService(db).list()
+    return AlarmService(db).list(include_false_positives=include_false_positives)
 
 
 @router.get("/{alarm_id}", response_model=AlarmRead)

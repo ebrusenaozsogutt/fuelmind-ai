@@ -72,6 +72,22 @@ async def _wait_for_sequence(factory, run_id: int, minimum: int) -> int:
     raise AssertionError(f"Run {run_id} did not reach sequence {minimum}.")
 
 
+async def _wait_for_connection_count(
+    station_id: int, expected_count: int, *, timeout_seconds: float = 1.0
+) -> None:
+    """Wait for the ASGI receive loop to process a client close frame."""
+
+    manager = app.state.connection_manager
+    deadline = asyncio.get_running_loop().time() + timeout_seconds
+    while manager.connection_count(station_id) != expected_count:
+        if asyncio.get_running_loop().time() >= deadline:
+            raise AssertionError(
+                f"Expected {expected_count} station connections, found "
+                f"{manager.connection_count(station_id)}."
+            )
+        await asyncio.sleep(0.01)
+
+
 def test_realtime_runner_socket_disconnect_reconnect_and_history_backfill(monkeypatch) -> None:
     """Prove the production runner path survives a live-client disconnect."""
 
@@ -151,8 +167,7 @@ def test_realtime_runner_socket_disconnect_reconnect_and_history_backfill(monkey
                 assert first["station_id"] == station_id
                 assert {"sequence", "simulation_time", "tanks", "pumps", "sales", "events", "active_scenarios", "generated_at"} <= first.keys()
                 assert second["sequence"] == first["sequence"] + 1
-            client.portal.call(asyncio.sleep, 0.01)
-            assert app.state.connection_manager.connection_count(station_id) == 0
+            client.portal.call(_wait_for_connection_count, station_id, 0)
             before_disconnect = second["sequence"]
             continued = client.portal.call(_wait_for_sequence, factory, run_id, before_disconnect + 2)
             assert runner.status != SimulationStatus.FAILED

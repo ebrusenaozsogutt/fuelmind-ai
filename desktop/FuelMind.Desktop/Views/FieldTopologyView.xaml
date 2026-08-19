@@ -1,0 +1,63 @@
+<UserControl x:Class="FuelMind.Desktop.Views.FieldTopologyView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Margin="28">
+      <TextBlock Style="{StaticResource PageTitleStyle}" Text="Saha Topolojisi"/>
+      <TextBlock Margin="0,4,0,0" Foreground="{DynamicResource MutedForegroundBrush}" Text="İstasyondaki controller, port, pompa, tabanca ve tank problarının bağlantı yapısını gösterir." TextWrapping="Wrap"/>
+      <Border Margin="0,20,0,0" Style="{StaticResource DashboardCardStyle}"><DockPanel><StackPanel Orientation="Horizontal"><TextBlock VerticalAlignment="Center" Text="İstasyon:"/><ComboBox Width="240" Margin="12,0,12,0" Style="{StaticResource DarkComboBoxStyle}" ItemsSource="{Binding Stations}" SelectedValuePath="Id" DisplayMemberPath="DisplayName" SelectedValue="{Binding SelectedStationId, Mode=TwoWay}"/><Button Style="{StaticResource DarkButtonStyle}" Command="{Binding RefreshCommand}" Content="Yenile"/></StackPanel><StackPanel DockPanel.Dock="Right" HorizontalAlignment="Right"><TextBlock Foreground="{DynamicResource MutedForegroundBrush}" Text="Canlı bağlantı"/><TextBlock FontWeight="SemiBold" Text="{Binding ConnectionState}"/></StackPanel></DockPanel></Border>
+      <TextBlock Margin="0,10,0,0" Foreground="{DynamicResource DangerForegroundBrush}" Text="{Binding ErrorMessage}" TextWrapping="Wrap"/>
+      <TextBlock Margin="0,24,0,0" Foreground="{DynamicResource MutedForegroundBrush}" Text="Bu istasyon için saha topolojisi henüz tanımlanmamış."><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding ShowEmptyState}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+
+      <ItemsControl Margin="0,20,0,0" ItemsSource="{Binding Controllers}">
+        <ItemsControl.ItemTemplate><DataTemplate>
+          <Border Margin="0,0,0,18" Style="{StaticResource DashboardCardStyle}">
+            <StackPanel>
+              <DockPanel><StackPanel><TextBlock FontSize="18" FontWeight="SemiBold" Text="{Binding Code}"/><TextBlock Foreground="{DynamicResource MutedForegroundBrush}" Text="{Binding Name}"/></StackPanel><StackPanel DockPanel.Dock="Right" HorizontalAlignment="Right"><TextBlock Text="{Binding ControllerType}"/><TextBlock FontWeight="SemiBold" Text="{Binding Status}"/><TextBlock Foreground="{DynamicResource MutedForegroundBrush}" Text="{Binding LastCommunicationAt, StringFormat={}{0:dd.MM.yyyy HH:mm:ss}, TargetNullValue=İletişim yok}"/></StackPanel></DockPanel>
+              <ItemsControl Margin="0,18,0,0" ItemsSource="{Binding Ports}">
+                <ItemsControl.ItemTemplate><DataTemplate>
+                  <Border Margin="0,0,0,20" Padding="18" Background="{DynamicResource ControlBackgroundBrush}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1" CornerRadius="8">
+                    <StackPanel>
+                      <DockPanel><StackPanel><TextBlock FontWeight="SemiBold" Text="{Binding Port.PortNumber, StringFormat=PORT {0}}"/><TextBlock Foreground="{DynamicResource MutedForegroundBrush}" Text="{Binding PortType}"/></StackPanel><StackPanel DockPanel.Dock="Right" HorizontalAlignment="Right"><TextBlock Text="{Binding Protocol}"/><TextBlock Foreground="{DynamicResource MutedForegroundBrush}" Text="{Binding Port.BaudRate, StringFormat={}{0} baud, TargetNullValue=-}"/><TextBlock FontWeight="SemiBold" Text="{Binding Status}"/></StackPanel></DockPanel>
+                      <ItemsControl Margin="0,16,0,0" ItemsSource="{Binding Pumps}">
+                        <ItemsControl.ItemTemplate><DataTemplate>
+                          <Border Margin="0,0,0,12" Padding="14" Background="{DynamicResource CardBrush}" CornerRadius="8">
+                            <StackPanel>
+                              <DockPanel><TextBlock FontWeight="SemiBold" Text="{Binding Code}"/><Border DockPanel.Dock="Right" Style="{StaticResource StatusBadgeStyle}"><TextBlock HorizontalAlignment="Center" FontWeight="SemiBold" Text="{Binding Status}"/></Border></DockPanel>
+                              <TextBlock Margin="0,8,0,0" Foreground="{DynamicResource MutedForegroundBrush}" Text="{Binding TankId, StringFormat=Tank: {0}}"/>
+                              <ItemsControl Margin="0,12,0,0" ItemsSource="{Binding Nozzles}">
+                                <ItemsControl.ItemTemplate><DataTemplate><Grid Margin="0,4"><Grid.ColumnDefinitions><ColumnDefinition Width="90"/><ColumnDefinition Width="*"/><ColumnDefinition Width="92"/><ColumnDefinition Width="120"/></Grid.ColumnDefinitions><TextBlock VerticalAlignment="Center" Text="{Binding Nozzle.NozzleNumber, StringFormat=Tabanca {0}}"/><TextBlock Grid.Column="1" VerticalAlignment="Center" Text="{Binding FuelType}"/><Border Grid.Column="2" Style="{StaticResource StatusBadgeStyle}"><TextBlock HorizontalAlignment="Center" FontWeight="SemiBold" Text="{Binding Status}"/></Border><TextBlock Grid.Column="3" VerticalAlignment="Center" HorizontalAlignment="Right" Text="{Binding TotalizerLiters, StringFormat={}{0:N2} L}"/></Grid></DataTemplate></ItemsControl.ItemTemplate>
+                              </ItemsControl>
+                            </StackPanel>
+                          </Border>
+                        </DataTemplate></ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                      <ItemsControl Margin="0,4,0,0" ItemsSource="{Binding Probes}">
+                        <ItemsControl.ItemTemplate><DataTemplate>
+                          <Border Margin="0,0,0,10" Padding="14" Background="{DynamicResource CardBrush}" CornerRadius="8">
+                            <StackPanel>
+                              <DockPanel><TextBlock FontWeight="SemiBold" Text="{Binding Code}"/><Border DockPanel.Dock="Right" Style="{StaticResource StatusBadgeStyle}"><TextBlock HorizontalAlignment="Center" FontWeight="SemiBold" Text="{Binding Status}"/></Border></DockPanel>
+                              <TextBlock Margin="0,8,0,0" Foreground="{DynamicResource MutedForegroundBrush}" Text="{Binding TankDisplay, StringFormat=Tank: {0}}"/>
+                              <WrapPanel Margin="0,8,0,0"><TextBlock Text="{Binding Probe.FuelVolumeLiters, StringFormat=Yakıt: {0:N2} L, TargetNullValue=Yakıt: -}"/><TextBlock Margin="16,0,0,0" Text="{Binding Probe.FuelHeightMm, StringFormat=Yükseklik: {0:N1} mm, TargetNullValue=Yükseklik: -}"/><TextBlock Margin="16,0,0,0" Text="{Binding Probe.WaterVolumeLiters, StringFormat=Su: {0:N2} L, TargetNullValue=Su: -}"/><TextBlock Margin="16,0,0,0" Text="{Binding Probe.TemperatureCelsius, StringFormat=Sıcaklık: {0:N1} °C, TargetNullValue=Sıcaklık: -}"/><TextBlock Margin="16,0,0,0" Text="{Binding Probe.DataQualityScore, StringFormat=Kalite: %{0:N0}, TargetNullValue=Kalite: -}"/></WrapPanel>
+                              <TextBlock Margin="0,6,0,0" Foreground="{DynamicResource MutedForegroundBrush}" Text="{Binding Probe.ReadingTimestamp, StringFormat=Son okuma: {0:dd.MM.yyyy HH:mm:ss}, TargetNullValue=Son okuma yok}"/>
+                            </StackPanel>
+                          </Border>
+                        </DataTemplate></ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </StackPanel>
+                  </Border>
+                </DataTemplate></ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+        </DataTemplate></ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <Grid Margin="0,2,0,18">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+        <Border Style="{StaticResource DashboardCardStyle}" Margin="0,0,10,0"><StackPanel><TextBlock FontSize="17" FontWeight="SemiBold" Text="Atanmamış Pompalar"/><ItemsControl Margin="0,10,0,0" ItemsSource="{Binding UnassignedPumps}"><ItemsControl.Style><Style TargetType="ItemsControl"><Setter Property="Visibility" Value="Visible"/><Style.Triggers><DataTrigger Binding="{Binding HasUnassignedPumps}" Value="False"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></ItemsControl.Style><ItemsControl.ItemTemplate><DataTemplate><TextBlock Margin="0,3,0,0" Text="{Binding Code}"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl><TextBlock Foreground="{DynamicResource MutedForegroundBrush}" Text="Atanmamış pompa bulunmuyor."><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding HasUnassignedPumps}" Value="False"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></StackPanel></Border>
+        <Border Grid.Column="1" Style="{StaticResource DashboardCardStyle}" Margin="10,0,0,0"><StackPanel><TextBlock FontSize="17" FontWeight="SemiBold" Text="Atanmamış Problar"/><ItemsControl Margin="0,10,0,0" ItemsSource="{Binding UnassignedProbes}"><ItemsControl.Style><Style TargetType="ItemsControl"><Setter Property="Visibility" Value="Visible"/><Style.Triggers><DataTrigger Binding="{Binding HasUnassignedProbes}" Value="False"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></ItemsControl.Style><ItemsControl.ItemTemplate><DataTemplate><TextBlock Margin="0,3,0,0" Text="{Binding Code}"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl><TextBlock Foreground="{DynamicResource MutedForegroundBrush}" Text="Atanmamış prob bulunmuyor."><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding HasUnassignedProbes}" Value="False"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></StackPanel></Border>
+      </Grid>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

@@ -17,8 +17,8 @@ class AlarmService:
             raise NotFoundError("Alarm not found.")
         return alarm
 
-    def list(self):
-        return self.repository.list()
+    def list(self, *, include_false_positives: bool = False):
+        return self.repository.list(include_false_positives=include_false_positives)
 
     def transition(
         self, alarm_id: int, target: AlarmStatus, user_id: int, note: str | None = None

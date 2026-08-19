@@ -126,6 +126,8 @@ def test_real_training_pipeline_creates_db_artifact_and_list_response(registry_a
     assert payload["is_active"] is True
     assert payload["artifact_available"] is True
     assert "model" in payload["training_diagnostics"]
+    assert payload["training_data_summary"]["dataset"]["raw_station_rows"] == 48
+    assert payload["training_data_summary"]["feature_engineering"]["pump_rows"] == payload["training_row_count"]
     assert not Path(payload["artifact_file_name"]).is_absolute()
 
     with factory() as session:

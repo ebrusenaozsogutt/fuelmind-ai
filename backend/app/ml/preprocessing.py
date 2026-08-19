@@ -9,7 +9,7 @@ from math import isfinite
 from typing import Iterable
 
 import pandas as pd
-from sqlalchemy import Select, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
 from app.models.sensor_reading import SensorReading
@@ -64,11 +64,19 @@ class TrainingDatasetSummary:
     """Selection counts and distributions for diagnosing a training dataset."""
 
     total_examined: int
+    raw_station_rows: int
+    rows_after_date_filter: int
+    rows_after_source_filter: int
+    excluded_date: int
+    excluded_source: int
     included: int
     excluded_quality: int
     excluded_anomaly: int
     excluded_scenario: int
     excluded_invalid: int
+    excluded_low_quality_score: int
+    excluded_critical_quality_flags: int
+    quality_flag_breakdown: dict[str, int]
     start_time: datetime | None
     end_time: datetime | None
     source_type_distribution: dict[str, int]
@@ -122,6 +130,15 @@ class AnomalyTrainingDatasetBuilder:
             if minimum_data_quality_score is None
             else minimum_data_quality_score
         )
+        raw_station_rows = int(self._db.scalar(
+            select(func.count(SensorReading.id)).where(
+                SensorReading.station_id == station_id
+            )
+        ) or 0)
+        date_filtered = list(self._db.scalars(self._readings_statement(
+            station_id=station_id, start_time=start_time, end_time=end_time,
+            source_types=None,
+        )))
         readings = list(
             self._db.scalars(
                 self._readings_statement(
@@ -140,12 +157,18 @@ class AnomalyTrainingDatasetBuilder:
 
         accepted: list[SensorReading] = []
         excluded_quality = excluded_anomaly = excluded_scenario = excluded_invalid = 0
+        excluded_low_quality_score = excluded_critical_quality_flags = 0
+        quality_flag_breakdown: Counter[str] = Counter()
         for reading in readings:
-            if (
-                float(reading.data_quality_score) < minimum_quality
-                or self._has_critical_quality_flag(reading)
-            ):
+            score_too_low = float(reading.data_quality_score) < minimum_quality
+            critical_flags = set(reading.quality_flags_json or ()) & CRITICAL_TRAINING_QUALITY_FLAGS
+            if score_too_low or critical_flags:
                 excluded_quality += 1
+                if score_too_low:
+                    excluded_low_quality_score += 1
+                else:
+                    excluded_critical_quality_flags += 1
+                quality_flag_breakdown.update(critical_flags)
             elif exclude_known_anomalies and reading.is_anomaly:
                 excluded_anomaly += 1
             elif exclude_active_scenarios and self._is_scenario_affected(reading, scenarios):
@@ -166,11 +189,19 @@ class AnomalyTrainingDatasetBuilder:
             dataframe=dataframe,
             summary=TrainingDatasetSummary(
                 total_examined=len(readings),
+                raw_station_rows=raw_station_rows,
+                rows_after_date_filter=len(date_filtered),
+                rows_after_source_filter=len(readings),
+                excluded_date=raw_station_rows - len(date_filtered),
+                excluded_source=len(date_filtered) - len(readings),
                 included=len(accepted),
                 excluded_quality=excluded_quality,
                 excluded_anomaly=excluded_anomaly,
                 excluded_scenario=excluded_scenario,
                 excluded_invalid=excluded_invalid,
+                excluded_low_quality_score=excluded_low_quality_score,
+                excluded_critical_quality_flags=excluded_critical_quality_flags,
+                quality_flag_breakdown=dict(sorted(quality_flag_breakdown.items())),
                 start_time=start_time,
                 end_time=end_time,
                 source_type_distribution=self._distribution(dataframe, "source_type"),

@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import datetime
+from collections.abc import Iterable
 from app.repositories.alarm_repository import AlarmRepository
 from app.services.monitoring_rules import DEFAULT_MONITORING_RULES, MonitoringRules
 from app.services.alarm_templates import guidance_for, title_for
@@ -138,8 +139,9 @@ class AlarmEngine:
         description, recommendation, probable_causes = guidance_for(alarm_type)
         if ai_result is not None:
             findings = tuple(getattr(ai_result, "findings", ()))
-            if findings:
-                description = f"{description} {' '.join(findings)}"
+            finding_messages = self._finding_messages(findings)
+            if finding_messages:
+                description = f"{description} {' '.join(finding_messages)}"
             checks = tuple(getattr(ai_result, "recommended_checks", ()))
             if checks:
                 recommendation = " ".join(checks)
@@ -170,3 +172,20 @@ class AlarmEngine:
             "data_quality_note": getattr(ai_result, "data_quality_note", None),
         }
         return [self.repository.create(values)]
+
+    @staticmethod
+    def _finding_messages(findings: Iterable[object]) -> list[str]:
+        """Extract human-readable text from either legacy or structured AI findings."""
+
+        messages: list[str] = []
+        for finding in findings:
+            if isinstance(finding, str):
+                message = finding
+            elif isinstance(finding, dict):
+                value = finding.get("message")
+                message = value if isinstance(value, str) else ""
+            else:
+                message = ""
+            if message:
+                messages.append(message)
+        return messages

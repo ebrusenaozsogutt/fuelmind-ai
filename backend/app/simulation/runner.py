@@ -16,6 +16,7 @@ from app.simulation.persistence import TickPersistence
 from app.simulation.state import StationSimulationState
 from app.simulation.tick_engine import TickEngine
 from app.simulation.tick_result import SimulationTickResult
+from app.services.live_topology_service import LiveTopologyService
 from app.utils.datetime_utils import utc_now
 from app.utils.enums import SimulationMode, SimulationStatus
 
@@ -222,12 +223,41 @@ class SimulationRunner:
             return
         for result in results:
             try:
-                await self._live_event_broker.publish_simulation_tick(self.run_id, result)
+                topology = self._load_live_topology()
+                if topology is None:
+                    await self._live_event_broker.publish_simulation_tick(
+                        self.run_id, result
+                    )
+                else:
+                    await self._live_event_broker.publish_simulation_tick(
+                        self.run_id, result, topology=topology
+                    )
                 await self._live_event_broker.publish_anomaly_evaluation(self.run_id, result)
                 for alarm in result.created_alarms:
                     await self._live_event_broker.publish_alarm_created(alarm)
             except Exception:
                 logger.warning("Live broker escaped publish isolation: run_id=%s sequence=%s", self.run_id, result.sequence_number, exc_info=True)
+
+    def _load_live_topology(self):
+        """Read one post-commit station snapshot without device-by-device queries."""
+
+        active_sales = getattr(self.station_state, "active_sales", None)
+        if active_sales is None:
+            # Lightweight runner doubles predate field-device topology state.
+            return None
+        session = self._session_factory()
+        try:
+            dispensing_nozzle_ids = {
+                sale.nozzle_id
+                for sale in active_sales.values()
+                if sale.nozzle_id is not None
+            }
+            return LiveTopologyService(session).snapshot(
+                self.station_state.station_id,
+                dispensing_nozzle_ids=dispensing_nozzle_ids,
+            )
+        finally:
+            session.close()
 
     async def _set_status(
         self,

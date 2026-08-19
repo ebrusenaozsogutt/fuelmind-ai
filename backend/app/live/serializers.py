@@ -7,6 +7,10 @@ from decimal import Decimal
 from enum import Enum
 from typing import Any
 
+from app.services.live_topology_service import (
+    LiveTopologySnapshot,
+    live_topology_payload,
+)
 from app.simulation.tick_result import SimulationTickResult
 from app.utils.datetime_utils import utc_now
 
@@ -40,10 +44,22 @@ def serialize_simulation_tick(
     tick_result: SimulationTickResult,
     *,
     generated_at: datetime | None = None,
+    topology: LiveTopologySnapshot | None = None,
 ) -> dict[str, Any]:
     """Convert one completed tick into the public WebSocket message contract."""
 
     timestamp = generated_at or utc_now()
+    topology = topology or LiveTopologySnapshot()
+    topology_payload = {
+        key: _json_value(value)
+        for key, value in live_topology_payload(
+            topology,
+            probe_measurements={
+                observation.probe_id: observation
+                for observation in tick_result.probe_observations
+            },
+        ).items()
+    }
     return {
         "event_type": "simulation_tick",
         "simulation_run_id": simulation_run_id,
@@ -74,6 +90,7 @@ def serialize_simulation_tick(
                 "temperature": pump.temperature,
                 "error_count": pump.error_count,
                 "working_duration": pump.total_working_hours,
+                "communication_port_id": topology.pump_port_ids.get(pump.pump_id),
             }
             for pump in tick_result.pump_results
         ],
@@ -86,6 +103,11 @@ def serialize_simulation_tick(
                 "quantity_liters": sale.dispensed_quantity_liters,
                 "started_at": sale.started_at.isoformat(),
                 "completed_at": sale.last_updated_at.isoformat(),
+                "nozzle_id": sale.nozzle_id,
+                "attendant_id": sale.attendant_id,
+                "attendant_name": sale.attendant_name,
+                "shift_id": sale.shift_id,
+                "shift_name": sale.shift_name,
             }
             for sale in tick_result.completed_sales
         ],
@@ -101,6 +123,7 @@ def serialize_simulation_tick(
         ],
         "active_scenarios": tick_result.active_scenarios,
         "generated_at": timestamp.isoformat(),
+        **topology_payload,
     }
 
 

@@ -11,7 +11,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 if TYPE_CHECKING:
+    from app.models.commercial import FuelCardAllowedFuelType, FuelPrice
     from app.models.forecast import Forecast
+    from app.models.nozzle import Nozzle
     from app.models.sale import Sale
     from app.models.tank import Tank
 
@@ -33,3 +35,8 @@ class FuelType(Base):
     tanks: Mapped[list[Tank]] = relationship(back_populates="fuel_type")
     sales: Mapped[list[Sale]] = relationship(back_populates="fuel_type")
     forecasts: Mapped[list[Forecast]] = relationship(back_populates="fuel_type")
+    nozzles: Mapped[list[Nozzle]] = relationship(back_populates="fuel_type")
+    allowed_fuel_cards: Mapped[list[FuelCardAllowedFuelType]] = relationship(
+        back_populates="fuel_type"
+    )
+    fuel_prices: Mapped[list[FuelPrice]] = relationship(back_populates="fuel_type")

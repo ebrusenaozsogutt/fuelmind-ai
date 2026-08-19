@@ -124,3 +124,36 @@ def test_hybrid_alarm_persists_complete_real_ai_detail():
     assert alarm.findings_json == ["Pump flow rate is 43% below normal."]
     assert alarm.probable_causes == [{"description": "Filter restriction"}]
     assert alarm.recommended_checks_json == ["Check the pump filter."]
+
+
+def test_structured_ai_findings_are_preserved_without_breaking_alarm_description():
+    repo = Repo()
+    candidate = AlarmEngine(repo).candidates(
+        station_id=1,
+        tanks=[],
+        pumps=[pump(flow=5)],
+        readings=[reading(tank_id=1, pump_id=2)],
+        moment=T,
+    )[0]
+    ai_result = SimpleNamespace(
+        risk_score=91.25,
+        risk_level="CRITICAL",
+        decision_source="MODEL",
+        severity="CRITICAL",
+        anomaly_type="EQUIPMENT_ANOMALY",
+        model_version="v0001",
+        model_outlier=True,
+        triggered_rules=(),
+        findings=({"message": "Pump flow rate is below its learned range."},),
+        probable_causes=(),
+        recommended_checks=(),
+        data_quality_note=None,
+        is_anomaly=True,
+    )
+
+    alarm = AlarmEngine(repo).raise_candidates(
+        [candidate], {("PUMP", 2): ai_result}
+    )[0]
+
+    assert "below its learned range" in alarm.description
+    assert alarm.findings_json == [{"message": "Pump flow rate is below its learned range."}]

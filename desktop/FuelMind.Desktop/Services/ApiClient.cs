@@ -65,6 +65,13 @@ public sealed class ApiClient
         await EnsureSuccessAsync(response, cancellationToken);
     }
 
+    public async Task<byte[]> DownloadAsync(string relativePath, CancellationToken cancellationToken = default)
+    {
+        using var response = await SendRequestAsync(HttpMethod.Get, relativePath, content: null, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadAsByteArrayAsync(cancellationToken);
+    }
+
     private async Task<T> SendAsync<T>(
         HttpMethod method,
         string relativePath,
@@ -93,12 +100,10 @@ public sealed class ApiClient
             Content = content,
         };
 
-        var token = _authState.GetValidAccessToken();
-        if (token is not null)
-        {
-            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(
-                _authState.TokenType ?? "Bearer", token);
-        }
+        // AuthenticationHandler attaches the same singleton AuthState token to every
+        // typed HttpClient request. Keep this fallback for direct unit-test clients.
+        if (request.Headers.Authorization is null && _authState.GetValidAccessToken() is { } token)
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(_authState.TokenType ?? "Bearer", token);
 
         _logger.LogDebug("API request: {Method} {Path}", method, relativePath);
         var response = await _httpClient.SendAsync(request, cancellationToken);

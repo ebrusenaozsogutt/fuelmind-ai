@@ -17,7 +17,7 @@
             <Button Margin="0,16,0,0" Padding="14,7" HorizontalAlignment="Left" Command="{Binding CreateSimulationCommand}" Content="Yeni Simülasyon Oluştur" />
         </StackPanel></Border>
         <Border Margin="0,20,0,0" Padding="18" Background="{DynamicResource CardBrush}" BorderBrush="#3B5362" BorderThickness="1" CornerRadius="6"><StackPanel>
-            <TextBlock FontSize="20" FontWeight="SemiBold" Text="Oluşturulan run" />
+            <TextBlock FontSize="20" FontWeight="SemiBold" Text="Oluşturulan run (kalıcı kayıt)" />
             <UniformGrid Margin="0,16,0,0" Columns="3">
                 <StackPanel Margin="0,0,12,12"><TextBlock Foreground="#B8C7D1" Text="Run ID" /><TextBlock FontSize="18" FontWeight="SemiBold" Text="{Binding RunId, TargetNullValue=--}" /></StackPanel>
                 <StackPanel Margin="0,0,12,12"><TextBlock Foreground="#B8C7D1" Text="Station" /><TextBlock FontSize="18" FontWeight="SemiBold" Text="{Binding RunStationId, TargetNullValue=--}" /></StackPanel>

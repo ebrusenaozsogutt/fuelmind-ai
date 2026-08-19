@@ -24,7 +24,7 @@ public sealed partial class LiveMonitoringViewModel : ObservableObject
     }
 
     [ObservableProperty]
-    private int _stationId = 1;
+    private int _stationId;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ConnectCommand))]
@@ -80,7 +80,11 @@ public sealed partial class LiveMonitoringViewModel : ObservableObject
     {
         LastError = null;
         IsBusy = true;
-        try { await _liveWebSocketService.ConnectAsync(StationId); }
+        try
+        {
+            _liveDataStore.SelectedStationId = StationId;
+            await _liveWebSocketService.ConnectAsync(StationId);
+        }
         catch (Exception exception) { LastError = exception.Message; }
         finally { IsBusy = false; }
     }

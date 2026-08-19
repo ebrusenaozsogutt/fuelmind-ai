@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.Input;
 using FuelMind.Desktop.Dtos.Auth;
 using FuelMind.Desktop.Dtos.Models;
+using FuelMind.Desktop.Dtos.Live;
 using FuelMind.Desktop.Dtos.Stations;
 using FuelMind.Desktop.Services;
 using FuelMind.Desktop.State;
@@ -196,7 +197,7 @@ public sealed class ModelManagementViewModelTests
 
         Assert.Contains("v0002", viewModel.SelectedModelTitle);
         Assert.Equal("pump", viewModel.SelectedModel.ModelFamily);
-        Assert.Equal("READY", viewModel.SelectedModel.ArtifactStatusText);
+        Assert.Equal("Hazır", viewModel.SelectedModel.ArtifactStatusText);
     }
 
     [Fact]
@@ -208,7 +209,7 @@ public sealed class ModelManagementViewModelTests
         await viewModel.LoadModelsAsync();
 
         Assert.Equal("v0006", viewModel.ActiveModel?.Version);
-        Assert.Equal("ACTIVE", viewModel.ActiveModel?.StatusText);
+        Assert.Equal("Aktif", viewModel.ActiveModel?.StatusText);
     }
 
     [Fact]
@@ -366,5 +367,11 @@ public sealed class ModelManagementViewModelTests
                     IsActive = true,
                     CreatedAt = DateTimeOffset.UtcNow,
                 }]);
+
+        public Task<StationLiveStatusDto> GetLiveStatusAsync(int stationId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new StationLiveStatusDto { StationId = stationId });
+
+        public Task<IReadOnlyList<FuelTypeDto>> GetFuelTypesAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<FuelTypeDto>>([]);
     }
 }

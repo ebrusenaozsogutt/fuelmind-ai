@@ -4,7 +4,9 @@ namespace FuelMind.Desktop.Services;
 
 public interface IAlarmService
 {
-    Task<IReadOnlyList<AlarmDto>> GetAllAsync(CancellationToken token = default);
+    Task<IReadOnlyList<AlarmDto>> GetAllAsync(
+        bool includeFalsePositives = false,
+        CancellationToken token = default);
     Task<AlarmDto> GetByIdAsync(int id, CancellationToken token = default);
     Task<AlarmDto> UpdateAsync(
         int id,
@@ -15,8 +17,11 @@ public interface IAlarmService
 
 public sealed class AlarmService(ApiClient api) : IAlarmService
 {
-    public Task<IReadOnlyList<AlarmDto>> GetAllAsync(CancellationToken token = default) =>
-        api.GetAsync<IReadOnlyList<AlarmDto>>("alarms", token);
+    public Task<IReadOnlyList<AlarmDto>> GetAllAsync(
+        bool includeFalsePositives = false,
+        CancellationToken token = default) =>
+        api.GetAsync<IReadOnlyList<AlarmDto>>(
+            includeFalsePositives ? "alarms?include_false_positives=true" : "alarms", token);
 
     public Task<AlarmDto> GetByIdAsync(int id, CancellationToken token = default) =>
         api.GetAsync<AlarmDto>($"alarms/{id}", token);

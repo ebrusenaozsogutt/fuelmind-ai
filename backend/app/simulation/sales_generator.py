@@ -2,6 +2,7 @@
 #akaryakıt istasyonlarında satışların simülasyonunu yapmak için kullanılan, bellek içi satış yaşam döngüsü üretimi.
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal
 from math import isfinite
 from numbers import Real
 from types import MappingProxyType
@@ -9,6 +10,7 @@ from types import MappingProxyType
 from app.simulation.demand_profile import DemandProfile
 from app.simulation.random_source import RandomSource
 from app.simulation.state import ActiveSaleState, StationSimulationState
+from app.services.commercial_sale_service import CommercialSaleSelection
 
 _EPSILON = 1e-9
 _MINIMUM_START_QUANTITY_LITERS = 1.0
@@ -57,12 +59,19 @@ class SalesGenerator:
     )
 
     def __init__(
-        self, *, random_source: RandomSource, demand_profile: DemandProfile
+        self,
+        *,
+        random_source: RandomSource,
+        demand_profile: DemandProfile,
+        commercial_selector: object | None = None,
+        operations_selector: object | None = None,
     ) -> None:
         """Use supplied deterministic random and demand dependencies."""
 
         self._random_source = random_source
         self._demand_profile = demand_profile
+        self._commercial_selector = commercial_selector
+        self._operations_selector = operations_selector
         self._sale_counters: dict[int, int] = {}
 
     def try_start_sale(
@@ -110,6 +119,28 @@ class SalesGenerator:
         if target_quantity_liters < _MINIMUM_START_QUANTITY_LITERS:
             return None
 
+        nozzle_id = self._select_nozzle_id(station_state, pump_id)
+        commercial_snapshot = None
+        if self._commercial_selector is not None and nozzle_id is not None:
+            selection: CommercialSaleSelection = self._commercial_selector(
+                station_id=station_state.station_id,
+                fuel_type_id=tank.fuel_type_id,
+                quantity_liters=Decimal(str(target_quantity_liters)),
+                started_at=moment,
+                random_source=self._random_source,
+            )
+            if selection.configured and selection.snapshot is None:
+                return None
+            commercial_snapshot = selection.snapshot
+
+        operations_selection = None
+        if self._operations_selector is not None:
+            operations_selection = self._operations_selector(
+                station_id=station_state.station_id,
+                simulation_time=moment,
+                random_source=self._random_source,
+            )
+
         sale = ActiveSaleState(
             sale_id=self._next_sale_id(station_state.station_id, pump_id),
             station_id=station_state.station_id,
@@ -120,6 +151,28 @@ class SalesGenerator:
             target_quantity_liters=target_quantity_liters,
             dispensed_quantity_liters=0.0,
             unit_price=unit_price,
+            nozzle_id=nozzle_id,
+            commercial_snapshot=commercial_snapshot,
+            attendant_id=(
+                operations_selection.attendant_id
+                if operations_selection is not None
+                else None
+            ),
+            attendant_name=(
+                operations_selection.attendant_name
+                if operations_selection is not None
+                else None
+            ),
+            shift_id=(
+                operations_selection.shift_id
+                if operations_selection is not None
+                else None
+            ),
+            shift_name=(
+                operations_selection.shift_name
+                if operations_selection is not None
+                else None
+            ),
         )
         station_state.start_sale(sale)
         try:
@@ -131,6 +184,16 @@ class SalesGenerator:
             station_state.complete_sale(pump_id)
             raise
         return sale
+
+    def _select_nozzle_id(
+        self, station_state: StationSimulationState, pump_id: int
+    ) -> int | None:
+        """Choose an available persisted nozzle without changing legacy sales."""
+
+        nozzles = station_state.available_nozzles(pump_id)
+        if not nozzles:
+            return None
+        return self._random_source.choice(sorted(nozzle.nozzle_id for nozzle in nozzles))
 
     def advance_active_sale(
         self,

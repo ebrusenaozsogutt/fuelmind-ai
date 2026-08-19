@@ -13,8 +13,23 @@ class SaleRepository:
     def get(self, sale_id: int) -> Sale | None:
         return self.db.get(Sale, sale_id)
 
-    def list(self) -> list[Sale]:
-        return list(self.db.scalars(select(Sale).order_by(Sale.sale_timestamp.desc())))
+    def list(
+        self,
+        *,
+        customer_id: int | None = None,
+        vehicle_id: int | None = None,
+        fuel_card_id: int | None = None,
+    ) -> list[Sale]:
+        statement = select(Sale)
+        if customer_id is not None:
+            statement = statement.where(Sale.customer_id == customer_id)
+        if vehicle_id is not None:
+            statement = statement.where(Sale.vehicle_id == vehicle_id)
+        if fuel_card_id is not None:
+            statement = statement.where(Sale.fuel_card_id == fuel_card_id)
+        # ``created_at`` is the durable completion order.  It prevents old, accidentally
+        # future-dated legacy rows from hiding newly completed realtime commercial sales.
+        return list(self.db.scalars(statement.order_by(Sale.created_at.desc(), Sale.id.desc())))
 
     def create(self, values: dict[str, object]) -> Sale:
         entity = Sale(**values)

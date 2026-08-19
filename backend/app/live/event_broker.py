@@ -6,6 +6,7 @@ import logging
 
 from app.live.connection_manager import ConnectionManager
 from app.live.serializers import serialize_alarm_created, serialize_anomaly_evaluation, serialize_simulation_tick
+from app.services.live_topology_service import LiveTopologySnapshot
 from app.simulation.tick_result import SimulationTickResult
 
 logger = logging.getLogger(__name__)
@@ -18,7 +19,13 @@ class LiveEventBroker:
         self._connection_manager = connection_manager
         self._last_sequences: dict[int, int] = {}
 
-    async def publish_simulation_tick(self, simulation_run_id: int, tick_result: SimulationTickResult) -> None:
+    async def publish_simulation_tick(
+        self,
+        simulation_run_id: int,
+        tick_result: SimulationTickResult,
+        *,
+        topology: LiveTopologySnapshot | None = None,
+    ) -> None:
         """Best-effort publish that never propagates live transport failures."""
 
         try:
@@ -38,7 +45,9 @@ class LiveEventBroker:
                 self._last_sequences.pop(next(iter(self._last_sequences)))
             await self._connection_manager.broadcast(
                 tick_result.station_id,
-                serialize_simulation_tick(simulation_run_id, tick_result),
+                serialize_simulation_tick(
+                    simulation_run_id, tick_result, topology=topology
+                ),
             )
         except Exception:
             logger.warning("Failed to publish live simulation tick: run_id=%s station_id=%s sequence=%s", simulation_run_id, tick_result.station_id, tick_result.sequence_number, exc_info=True)

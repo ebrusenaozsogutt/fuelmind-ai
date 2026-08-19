@@ -14,6 +14,7 @@ from app.exceptions import BusinessRuleError, NotFoundError
 from app.repositories.simulation_run_repository import SimulationRunRepository
 from app.simulation.dependencies import build_simulation_runner
 from app.simulation.dataset_generator import DatasetGenerator
+from app.simulation.lifecycle import is_station_run_blocking
 from app.simulation.runner import SimulationRunner
 from app.utils.enums import SimulationMode, SimulationStatus
 
@@ -22,12 +23,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_ACTIVE_STATUSES = {
-    SimulationStatus.STARTING,
-    SimulationStatus.RUNNING,
-    SimulationStatus.PAUSED,
-    SimulationStatus.STOPPING,
-}
 _SHUTDOWN_TIMEOUT_SECONDS = 5.0
 
 SessionFactory = Callable[[], Session]
@@ -91,8 +86,6 @@ class SimulationManager:
                 raise BusinessRuleError(
                     "The station already has an active realtime simulation run."
                 )
-            if run.mode == SimulationMode.REALTIME:
-                self._ensure_station_available(run_id, run.station_id)
             runner = self._runner_factory(run_id)
             task = asyncio.create_task(
                 self._run_and_cleanup(run_id, runner),
@@ -165,6 +158,14 @@ class SimulationManager:
 
         task = self._tasks.get(run_id)
         return task is not None and not task.done()
+
+    def active_run_id_for_station(self, station_id: int) -> int | None:
+        """Return the actual in-process realtime run for one station, if any."""
+
+        for run_id, active_station_id in tuple(self._run_stations.items()):
+            if active_station_id == station_id and self._is_run_blocking(run_id):
+                return run_id
+        return None
 
     def is_dataset_active(self, run_id: int) -> bool:
         task = self._dataset_tasks.get(run_id)
@@ -276,17 +277,14 @@ class SimulationManager:
         finally:
             session.close()
 
-    def _ensure_station_available(self, run_id: int, station_id: int) -> None:
-        """Reject a second active realtime run for the same station from DB state."""
+    def _is_run_blocking(self, run_id: int) -> bool:
+        """Apply the shared definition to a registry-owned run and its DB state."""
 
-        session = self._session_factory()
-        try:
-            active_runs = SimulationRunRepository(session).list_by_station_mode_and_statuses(
-                station_id, SimulationMode.REALTIME, _ACTIVE_STATUSES
-            )
-        finally:
-            session.close()
-        if any(active.id != run_id for active in active_runs):
-            raise BusinessRuleError(
-                "The station already has an active realtime simulation run."
-            )
+        if not self.is_active(run_id):
+            return False
+        run = self._get_run(run_id)
+        return is_station_run_blocking(
+            mode=run.mode,
+            status=run.status,
+            runner_is_active=True,
+        )

@@ -117,6 +117,41 @@ public sealed class AlarmAiIntegrationTests
         Assert.Equal("v0001", viewModel.SelectedAlarm?.ModelVersion);
     }
 
+    [Fact]
+    public void ActiveAlarmListExcludesResolvedAndFalsePositiveRecords()
+    {
+        using var socket = CreateSocket();
+        var viewModel = new AlarmsViewModel(new FakeAlarmService(), socket);
+        viewModel.Alarms.Add(new AlarmDto { Id = 1, StationId = 1, Status = "NEW" });
+        viewModel.Alarms.Add(new AlarmDto { Id = 2, StationId = 1, Status = "RESOLVED" });
+        viewModel.Alarms.Add(new AlarmDto { Id = 3, StationId = 1, Status = "FALSE_POSITIVE" });
+        viewModel.FilteredAlarms.Refresh();
+
+        var visibleIds = viewModel.FilteredAlarms.Cast<AlarmDto>().Select(alarm => alarm.Id);
+        Assert.Equal([1], visibleIds);
+    }
+
+    [Fact]
+    public async Task EndOfDayReportIncludesClosedAndFalsePositiveAlarmsForSelectedDate()
+    {
+        var today = DateTimeOffset.Now;
+        var service = new FakeAlarmService
+        {
+            All =
+            [
+                new AlarmDto { Id = 1, StationId = 1, Status = "NEW", DetectedAt = today },
+                new AlarmDto { Id = 2, StationId = 1, Status = "RESOLVED", DetectedAt = today },
+                new AlarmDto { Id = 3, StationId = 1, Status = "FALSE_POSITIVE", DetectedAt = today },
+                new AlarmDto { Id = 4, StationId = 1, Status = "NEW", DetectedAt = today.AddDays(-1) },
+            ],
+        };
+        var viewModel = new EndOfDayAlarmReportViewModel(service) { ReportDate = today.LocalDateTime.Date };
+
+        await viewModel.LoadCommand.ExecuteAsync(null);
+
+        Assert.Equal([1, 2, 3], viewModel.Alarms.Select(alarm => alarm.Id).Order());
+    }
+
     private static LiveWebSocketService CreateSocket()
     {
         var store = new LiveDataStore(Dispatcher.CurrentDispatcher);
@@ -136,11 +171,14 @@ public sealed class AlarmAiIntegrationTests
     {
         public AlarmDto Detail { get; init; } = new();
         public AlarmDto? UpdateResult { get; init; }
+        public IReadOnlyList<AlarmDto> All { get; init; } = [];
         public int? LastDetailId { get; private set; }
         public string? LastAction { get; private set; }
 
-        public Task<IReadOnlyList<AlarmDto>> GetAllAsync(CancellationToken token = default) =>
-            Task.FromResult<IReadOnlyList<AlarmDto>>([]);
+        public Task<IReadOnlyList<AlarmDto>> GetAllAsync(
+            bool includeFalsePositives = false,
+            CancellationToken token = default) =>
+            Task.FromResult(All);
 
         public Task<AlarmDto> GetByIdAsync(int id, CancellationToken token = default)
         {

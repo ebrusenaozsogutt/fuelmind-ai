@@ -17,7 +17,7 @@ class DashboardService:
     def __init__(self, db: Session) -> None:
         self.db = db
 
-    def summary(self, station_id: int) -> dict[str, int | float]:
+    def summary(self, station_id: int) -> dict[str, int | float | str | None]:
         if StationRepository(self.db).get(station_id) is None:
             raise NotFoundError("Station not found.")
         now = utc_now()
@@ -34,5 +34,38 @@ class DashboardService:
             for alarm in active if alarm.tank_id is not None or alarm.pump_id is not None
         }
         critical = sum(alarm.severity == AlarmSeverity.CRITICAL for alarm in active)
-        health = max(0, 100 - len(active) * 5 - critical * 15 - len(risky_targets) * 2)
-        return {"station_id": station_id, "daily_sales_liters": float(daily_sales or 0), "active_alarms": len(active), "critical_alarms": critical, "risky_equipment": len(risky_targets), "station_health_score": health}
+        ai_alarms = [alarm for alarm in active if alarm.anomaly_score is not None]
+        # A station is operationally constrained by its riskiest active asset.
+        # Using the maximum retains the calibrated 0-100 risk semantics instead
+        # of inventing a second scoring scale from alarm counts.
+        riskiest = max(ai_alarms, key=lambda alarm: float(alarm.anomaly_score), default=None)
+        station_risk = float(riskiest.anomaly_score) if riskiest is not None else None
+        high_or_critical = sum(
+            (alarm.risk_level or "").upper() in {"HIGH", "CRITICAL"}
+            for alarm in ai_alarms
+        )
+        most_risky_equipment = None
+        if riskiest is not None:
+            most_risky_equipment = (
+                f"Pompa #{riskiest.pump_id}" if riskiest.pump_id is not None
+                else f"Tank #{riskiest.tank_id}" if riskiest.tank_id is not None
+                else "İstasyon"
+            )
+        last_ai_assessment_at = max(
+            (alarm.detected_at for alarm in ai_alarms), default=None
+        )
+        return {
+            "station_id": station_id,
+            "daily_sales_liters": float(daily_sales or 0),
+            "active_alarms": len(active),
+            "critical_alarms": critical,
+            "risky_equipment": len(risky_targets),
+            "station_risk_score": station_risk,
+            "station_risk_level": riskiest.risk_level if riskiest is not None else None,
+            "high_or_critical_risk_count": high_or_critical,
+            "most_risky_equipment": most_risky_equipment,
+            "last_ai_assessment_at": last_ai_assessment_at,
+            # Health is displayed only where an AI risk exists and is explicitly
+            # defined as the inverse of that same calibrated risk.
+            "station_health_score": None if station_risk is None else round(100 - station_risk),
+        }

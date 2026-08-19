@@ -6,6 +6,7 @@ from numbers import Real
 from app.simulation.clock import SimulationClock
 from app.simulation.config import SimulationConfig
 from app.simulation.delivery_generator import DeliveryGenerator
+from app.simulation.field_device import derive_probe_observations
 from app.simulation.pump_generator import PumpGenerator
 from app.simulation.sales_generator import SalesGenerator
 from app.simulation.scenario_engine import ScenarioEngine
@@ -148,6 +149,7 @@ class TickEngine:
             )
         self.scenario_engine.apply_equipment(station_state, active_scenarios, elapsed)
         self.scenario_engine.apply_sensor_and_physical(station_state, active_scenarios, elapsed)
+        probe_observations = derive_probe_observations(station_state)
         result = SimulationTickResult(
             station_state.station_id,
             now,
@@ -159,6 +161,7 @@ class TickEngine:
             deliveries,
             events,
             self.scenario_engine.public(active_scenarios),
+            probe_observations=probe_observations,
         )
         self.validator.validate_tick_result(result, station_state)
         self.validator.validate_station_state(station_state)

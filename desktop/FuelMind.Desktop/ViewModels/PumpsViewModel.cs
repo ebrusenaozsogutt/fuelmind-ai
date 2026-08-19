@@ -25,6 +25,7 @@ public sealed partial class PumpsViewModel : ObservableObject
     private readonly LiveChartDataService _liveChartDataService;
     private readonly ApiClient _apiClient;
     private readonly HashSet<int> _historyLoadedPumpIds = [];
+    private readonly HashSet<int> _historyLoadingPumpIds = [];
     private readonly LineSeries<LiveChartPoint> _selectedMetricSeries;
     private ReadOnlyObservableCollection<LiveChartPoint>? _selectedPumpHistory;
     private INotifyCollectionChanged? _selectedPumpHistoryNotifications;
@@ -81,6 +82,11 @@ public sealed partial class PumpsViewModel : ObservableObject
     public Axis[] XAxes { get; }
     public Axis[] YAxes { get; }
     public int SelectedChartPointCount => _selectedPumpHistory?.Count ?? 0;
+    public PumpHistoryState SelectedHistoryState { get; private set; } = PumpHistoryState.NotRequested;
+    public bool IsHistoryLoading => SelectedHistoryState == PumpHistoryState.Loading;
+    public bool HasEmptyHistory => SelectedHistoryState == PumpHistoryState.Empty;
+    public bool HasHistoryError => SelectedHistoryState == PumpHistoryState.Error;
+    public bool HasHistory => SelectedHistoryState == PumpHistoryState.Ready;
     public IReadOnlyList<PumpChartMetricOption> MetricOptions { get; } =
     [
         new(PumpChartMetric.FlowRate, "Debi"),
@@ -148,6 +154,10 @@ public sealed partial class PumpsViewModel : ObservableObject
         YAxes[0].Name = GetMetricAxisTitle(SelectedMetric);
         OnPropertyChanged(nameof(Series));
         OnPropertyChanged(nameof(SelectedChartPointCount));
+        OnPropertyChanged(nameof(IsHistoryLoading));
+        OnPropertyChanged(nameof(HasEmptyHistory));
+        OnPropertyChanged(nameof(HasHistoryError));
+        OnPropertyChanged(nameof(HasHistory));
         NotifySelectedPumpState();
     }
 
@@ -194,7 +204,8 @@ public sealed partial class PumpsViewModel : ObservableObject
 
     private async Task LoadHistoryAsync(int pumpId)
     {
-        if (!_historyLoadedPumpIds.Add(pumpId)) return;
+        if (_historyLoadedPumpIds.Contains(pumpId) || !_historyLoadingPumpIds.Add(pumpId)) return;
+        SetHistoryState(PumpHistoryState.Loading);
         try
         {
             var readings = await _apiClient.GetAsync<IReadOnlyList<SensorHistoryDto>>($"pumps/{pumpId}/sensor-history?limit=600");
@@ -205,13 +216,27 @@ public sealed partial class PumpsViewModel : ObservableObject
                 AddHistory(pumpId, "motor_current", reading.ReadingTimestamp, reading.MotorCurrent);
                 AddHistory(pumpId, "temperature", reading.ReadingTimestamp, reading.PumpTemperature);
             }
+            _historyLoadedPumpIds.Add(pumpId);
+            SetHistoryState(readings.Count == 0 ? PumpHistoryState.Empty : PumpHistoryState.Ready);
             if (SelectedPumpId == pumpId) UpdateSelectedSeries();
         }
         catch (Exception)
         {
             // The live chart remains available even when retained history is unavailable.
-            _historyLoadedPumpIds.Remove(pumpId);
+            SetHistoryState(PumpHistoryState.Error);
         }
+        finally { _historyLoadingPumpIds.Remove(pumpId); }
+    }
+
+    private void SetHistoryState(PumpHistoryState state)
+    {
+        if (SelectedHistoryState == state) return;
+        SelectedHistoryState = state;
+        OnPropertyChanged(nameof(SelectedHistoryState));
+        OnPropertyChanged(nameof(IsHistoryLoading));
+        OnPropertyChanged(nameof(HasEmptyHistory));
+        OnPropertyChanged(nameof(HasHistoryError));
+        OnPropertyChanged(nameof(HasHistory));
     }
 
     private void AddHistory(int pumpId, string metric, DateTimeOffset timestamp, decimal? value)
@@ -221,7 +246,10 @@ public sealed partial class PumpsViewModel : ObservableObject
     }
     [RelayCommand] private void SelectPump(int pumpId) => SelectedPumpId = pumpId;
     [RelayCommand] private void OpenDetail(int pumpId) => _detailNavigation.ShowPump(pumpId);
+    [RelayCommand] private void RetryHistory() { if (SelectedPumpId is int id) _ = LoadHistoryAsync(id); }
 }
+
+public enum PumpHistoryState { NotRequested, Loading, Ready, Empty, Error }
 
 public enum PumpChartMetric { FlowRate, Pressure, MotorCurrent, Temperature }
 

@@ -131,13 +131,17 @@ class AnomalyExplanationService:
         if top_limit <= 0:
             raise ValueError("top_limit must be positive.")
         values = self._validate_row(features, profile)
-        findings = self._findings(values, profile, top_limit)
+        findings = (
+            self._findings(values, profile, top_limit)
+            if decision.decision_source in {HybridDecisionSource.MODEL, HybridDecisionSource.HYBRID}
+            else ()
+        )
         evidence = tuple(RuleEvidence(code, guidance_for(code)[0]) for code in decision.triggered_rule_codes)
         causes, checks = self._rule_guidance(decision.triggered_rule_codes)
         quality_note = self._quality_note(decision.data_quality_limited, quality_flags)
         sources = self._sources(decision, bool(findings), quality_note is not None)
         return AnomalyExplanation(
-            title=self._title(decision), summary=self._summary(decision), findings=findings,
+            title=self._title(decision), summary=self._summary(decision, bool(findings)), findings=findings,
             rule_evidence=evidence, probable_causes=causes, recommended_checks=checks,
             decision_source=decision.decision_source, risk_score=decision.risk_score,
             anomaly_type=decision.anomaly_type, data_quality_note=quality_note,
@@ -171,7 +175,16 @@ class AnomalyExplanationService:
                 stats.median, abs(difference), percent, direction, score,
                 AnomalyExplanationService._finding_message(name, difference, percent, stats.median),
             ))
-        return tuple(sorted(findings, key=lambda item: (-item.deviation_score, item.feature_name))[:limit])
+        # A feature is presented only when it is both outside the learned 5-95%
+        # band and materially separated from the robust IQR scale.  This avoids
+        # pretending a tiny normal fluctuation explains a multivariate model hit.
+        meaningful = [
+            item for item in findings
+            if item.deviation_score >= 2
+            and (item.current_value < profile.statistics[item.feature_name].q05
+                 or item.current_value > profile.statistics[item.feature_name].q95)
+        ]
+        return tuple(sorted(meaningful, key=lambda item: (-item.deviation_score, item.feature_name))[:limit])
 
     @staticmethod
     def _finding_message(name: str, difference: float, percent: float | None, median: float) -> str:
@@ -222,9 +235,13 @@ class AnomalyExplanationService:
         }.get(decision.decision_source, "Anomali Uyarısı")
 
     @staticmethod
-    def _summary(decision: HybridAnomalyDecision) -> str:
+    def _summary(decision: HybridAnomalyDecision, has_findings: bool) -> str:
         if decision.decision_source is HybridDecisionSource.MODEL:
-            return "Sensör değerlerinin birleşimi öğrenilen normal davranıştan anlamlı biçimde farklı; bu sonuç kesin bir arıza teşhisi değildir."
+            return (
+                "Sensör değerlerinin birleşimi öğrenilen normal davranıştan anlamlı biçimde farklı; bu sonuç kesin bir arıza teşhisi değildir."
+                if has_findings else
+                "Model genel davranış örüntüsünde anomali tespit etti ancak tek bir baskın ölçüm sapması belirlenemedi."
+            )
         if decision.decision_source is HybridDecisionSource.HYBRID:
             return "Tanımlı çalışma kuralı ile anomali modeli aynı olağandışı çalışma durumuna işaret ediyor."
         if decision.decision_source is HybridDecisionSource.DATA_QUALITY:

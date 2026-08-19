@@ -11,7 +11,9 @@ from app.utils.enums import PumpStatus
 class PumpBase(BaseModel):
     station_id: int = Field(gt=0)
     tank_id: int = Field(gt=0)
+    communication_port_id: int | None = Field(default=None, gt=0)
     code: str = Field(min_length=1, max_length=32)
+    device_address: str | None = Field(default=None, max_length=100)
     status: PumpStatus = PumpStatus.IDLE
     nominal_flow_rate: Decimal = Field(gt=0, max_digits=12, decimal_places=3)
     minimum_flow_rate: Decimal = Field(ge=0, max_digits=12, decimal_places=3)
@@ -31,6 +33,11 @@ class PumpBase(BaseModel):
             raise ValueError("Pump code cannot be empty.")
         return value
 
+    @field_validator("device_address")
+    @classmethod
+    def strip_device_address(cls, value: str | None) -> str | None:
+        return value.strip() if value is not None else None
+
     @model_validator(mode="after")
     def validate_flow_rates(self) -> "PumpBase":
         if self.minimum_flow_rate > self.nominal_flow_rate:
@@ -45,7 +52,9 @@ class PumpCreate(PumpBase):
 class PumpUpdate(BaseModel):
     station_id: int | None = Field(default=None, gt=0)
     tank_id: int | None = Field(default=None, gt=0)
+    communication_port_id: int | None = Field(default=None, gt=0)
     code: str | None = Field(default=None, min_length=1, max_length=32)
+    device_address: str | None = Field(default=None, max_length=100)
     status: PumpStatus | None = None
     nominal_flow_rate: Decimal | None = Field(
         default=None, gt=0, max_digits=12, decimal_places=3
@@ -74,6 +83,11 @@ class PumpUpdate(BaseModel):
         if not value:
             raise ValueError("Pump code cannot be empty.")
         return value
+
+    @field_validator("device_address")
+    @classmethod
+    def strip_optional_device_address(cls, value: str | None) -> str | None:
+        return value.strip() if value is not None else None
 
     @model_validator(mode="after")
     def validate_supplied_flow_rates(self) -> "PumpUpdate":

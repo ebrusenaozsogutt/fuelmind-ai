@@ -32,6 +32,8 @@ if TYPE_CHECKING:
     from app.models.sale import Sale
     from app.models.sensor_reading import SensorReading
     from app.models.station import Station
+    from app.models.probe_reading import ProbeReading
+    from app.models.tank_probe import TankProbe
 
 
 class Tank(Base):
@@ -107,3 +109,5 @@ class Tank(Base):
     order_recommendations: Mapped[list[OrderRecommendation]] = relationship(
         back_populates="tank"
     )
+    tank_probes: Mapped[list[TankProbe]] = relationship(back_populates="tank")
+    probe_readings: Mapped[list[ProbeReading]] = relationship(back_populates="tank")

@@ -5,7 +5,25 @@ from enum import Enum
 import pytest
 from pydantic import BaseModel, ValidationError
 
-from app.utils.enums import AlarmStatus, AnomalyType, PumpStatus, UserRole
+from app.utils.enums import (
+    AlarmStatus,
+    AnomalyType,
+    CardLimitType,
+    CardStatus,
+    ControllerStatus,
+    ControllerType,
+    CustomerRequestStatus,
+    CustomerType,
+    DriverAssignmentStatus,
+    NozzleStatus,
+    PortStatus,
+    PortType,
+    PaymentType,
+    ProbeStatus,
+    PumpStatus,
+    SaleStatus,
+    UserRole,
+)
 
 
 class EnumPayload(BaseModel):
@@ -19,6 +37,15 @@ class EnumPayload(BaseModel):
     [
         (UserRole, {"ADMIN", "OPERATOR"}),
         (PumpStatus, {"ACTIVE", "IDLE", "MAINTENANCE", "FAULT", "OFFLINE"}),
+        (ControllerType, {"USC", "GENERIC"}),
+        (ControllerStatus, {"ONLINE", "OFFLINE", "ERROR", "STARTING"}),
+        (PortType, {"PUMP", "PROBE", "GENERIC"}),
+        (PortStatus, {"ONLINE", "OFFLINE", "DEGRADED", "ERROR"}),
+        (ProbeStatus, {"ONLINE", "OFFLINE", "FAULT", "UNKNOWN"}),
+        (
+            NozzleStatus,
+            {"AVAILABLE", "DISPENSING", "OUT_OF_SERVICE", "FAULT"},
+        ),
         (
             AlarmStatus,
             {"NEW", "ACKNOWLEDGED", "INVESTIGATING", "RESOLVED", "FALSE_POSITIVE"},
@@ -33,6 +60,22 @@ class EnumPayload(BaseModel):
                 "DATA_QUALITY_ANOMALY",
             },
         ),
+        (CustomerType, {"COMPANY", "INDIVIDUAL"}),
+        (
+            CustomerRequestStatus,
+            {"PENDING", "APPROVED", "REJECTED", "SUSPENDED"},
+        ),
+        (CardStatus, {"ACTIVE", "PASSIVE", "BLOCKED", "EXPIRED"}),
+        (
+            CardLimitType,
+            {"PER_TRANSACTION", "DAILY", "WEEKLY", "MONTHLY", "CUSTOM"},
+        ),
+        (PaymentType, {"PREPAID", "CREDIT"}),
+        (
+            SaleStatus,
+            {"AUTHORIZED", "STARTED", "COMPLETED", "CANCELLED", "FAILED"},
+        ),
+        (DriverAssignmentStatus, {"ACTIVE", "COMPLETED", "CANCELLED"}),
     ],
 )
 def test_enum_values_match_database_strings(

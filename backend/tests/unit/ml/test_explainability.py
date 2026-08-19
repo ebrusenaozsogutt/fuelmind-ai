@@ -71,3 +71,32 @@ def test_none_returns_no_explanation_and_invalid_data_is_rejected() -> None:
     decision = HybridDecisionEngine().decide(risk_result=_risk())
     with pytest.raises(ValueError, match="NaN or infinity"):
         service.explain(decision, {"flow_rate": np.nan, "motor_current": 10, "water_level": 0}, _profile())
+
+
+def test_model_does_not_invent_a_dominant_feature_when_values_are_in_reference_band() -> None:
+    service = AnomalyExplanationService()
+    decision = HybridDecisionEngine().decide(risk_result=_risk(), entity_family="pump")
+
+    explanation = service.explain(
+        decision, {"flow_rate": 41, "motor_current": 10, "water_level": 0}, _profile()
+    )
+
+    assert explanation is not None
+    assert explanation.findings == ()
+    assert "tek bir baskın ölçüm sapması" in explanation.summary
+
+
+def test_rule_only_explanation_does_not_claim_model_feature_findings() -> None:
+    service = AnomalyExplanationService()
+    decision = HybridDecisionEngine().decide(
+        rule_severity=AlarmSeverity.HIGH, triggered_rule_codes=("LOW_FLOW",),
+        entity_family="pump",
+    )
+
+    explanation = service.explain(
+        decision, {"flow_rate": 24, "motor_current": 15, "water_level": 0}, _profile()
+    )
+
+    assert explanation is not None
+    assert explanation.findings == ()
+    assert explanation.rule_evidence

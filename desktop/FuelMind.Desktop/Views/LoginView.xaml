@@ -28,7 +28,7 @@
                            Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}" />
                 <Button Height="38" IsDefault="True" Click="OnLoginClick" Content="Giriş Yap">
                     <Button.Style>
-                        <Style TargetType="Button">
+                        <Style TargetType="Button" BasedOn="{StaticResource DarkButtonStyle}">
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsBusy}" Value="True">
                                     <Setter Property="IsEnabled" Value="False" />
