@@ -10,6 +10,7 @@ namespace FuelMind.Desktop.ViewModels;
 public sealed partial class SalesHistoryViewModel(
     ICommercialService commercialService,
     IStationService stationService,
+    IOperationsService operationsService,
     ApiClient apiClient) : ObservableObject
 {
     private readonly List<SaleReadDto> _allSales = [];
@@ -23,6 +24,11 @@ public sealed partial class SalesHistoryViewModel(
 
     public IReadOnlyList<string> SaleTypes { get; } = ["Tümü", "Ticari", "Legacy"];
     public bool IsEmpty => !IsLoading && Sales.Count == 0 && string.IsNullOrEmpty(ErrorMessage);
+    public string EmptyStateMessage => SelectedSaleType == "Legacy"
+        ? "Legacy satış kaydı bulunmuyor."
+        : SelectedSaleType == "Ticari"
+            ? "Ticari satış kaydı bulunmuyor."
+            : "Satış kaydı bulunmuyor.";
 
     [RelayCommand]
     public async Task LoadAsync()
@@ -42,7 +48,9 @@ public sealed partial class SalesHistoryViewModel(
             var driversTask = commercialService.GetDriversAsync();
             var stationsTask = stationService.GetActiveStationsAsync();
             var fuelTypesTask = stationService.GetFuelTypesAsync();
-            await Task.WhenAll(salesTask, customersTask, vehiclesTask, cardsTask, fleetsTask, groupsTask, driversTask, stationsTask, fuelTypesTask);
+            var attendantsTask = operationsService.AttendantsAsync();
+            var shiftsTask = operationsService.ShiftsAsync();
+            await Task.WhenAll(salesTask, customersTask, vehiclesTask, cardsTask, fleetsTask, groupsTask, driversTask, stationsTask, fuelTypesTask, attendantsTask, shiftsTask);
 
             var sales = await salesTask;
             var customers = (await customersTask).ToDictionary(item => item.Id, item => $"{item.Code} · {item.Name}");
@@ -53,6 +61,8 @@ public sealed partial class SalesHistoryViewModel(
             var drivers = (await driversTask).ToDictionary(item => item.Id, item => item.FullName);
             var stations = (await stationsTask).ToDictionary(item => item.Id, item => item.DisplayName);
             var fuelTypes = (await fuelTypesTask).ToDictionary(item => item.Id, item => item.DisplayName);
+            var attendants = (await attendantsTask).ToDictionary(item => item.Id, item => item.FullName);
+            var shifts = (await shiftsTask).ToDictionary(item => item.Id, item => item.Name);
 
             // Pump requests are grouped by station, never by sale row.
             var pumpTasks = sales.Select(item => item.StationId).Distinct()
@@ -72,20 +82,23 @@ public sealed partial class SalesHistoryViewModel(
                 sale.StationLabel = stations.GetValueOrDefault(sale.StationId, $"İstasyon #{sale.StationId}");
                 sale.PumpLabel = pumps.GetValueOrDefault(sale.PumpId, $"Pompa #{sale.PumpId}");
                 sale.FuelTypeLabel = fuelTypes.GetValueOrDefault(sale.FuelTypeId, $"Yakıt #{sale.FuelTypeId}");
+                sale.AttendantLabel = sale.AttendantName ?? (sale.AttendantId is int attendantId && attendants.TryGetValue(attendantId, out var attendant) ? attendant : "—");
+                sale.ShiftLabel = sale.ShiftName ?? (sale.ShiftId is int shiftId && shifts.TryGetValue(shiftId, out var shift) ? shift : "—");
                 _allSales.Add(sale);
             }
 
             ApplyFilter(selectedId);
             OnPropertyChanged(nameof(IsEmpty));
         }
-        catch (Exception ex)
-        {
-            ErrorMessage = ex is ApiException api ? api.Message : ex.Message;
-        }
+        catch (Exception ex) { ErrorMessage = ToMessage(ex); }
         finally { IsLoading = false; }
     }
 
-    partial void OnSelectedSaleTypeChanged(string value) => ApplyFilter();
+    partial void OnSelectedSaleTypeChanged(string value)
+    {
+        ApplyFilter();
+        OnPropertyChanged(nameof(EmptyStateMessage));
+    }
 
     public void StartAutoRefresh()
     {
@@ -118,7 +131,7 @@ public sealed partial class SalesHistoryViewModel(
     {
         selectedId ??= SelectedSale?.Id;
         var filtered = _allSales
-            .Where(item => SelectedSaleType == "Tümü" || item.SaleKind == SelectedSaleType)
+            .Where(item => SelectedSaleType == "Tümü" || string.Equals(item.SaleKind, SelectedSaleType, StringComparison.OrdinalIgnoreCase))
             // Completion time is canonical for the history feed; simulation timestamps
             // remain displayed but cannot let legacy future rows hide new sales.
             .OrderByDescending(item => item.CreatedAt)
@@ -129,5 +142,15 @@ public sealed partial class SalesHistoryViewModel(
         SelectedSale = selectedId is null
             ? Sales.FirstOrDefault()
             : Sales.FirstOrDefault(item => item.Id == selectedId) ?? Sales.FirstOrDefault();
+        OnPropertyChanged(nameof(IsEmpty));
+    }
+
+    private static string ToMessage(Exception ex)
+    {
+        var api = ex as ApiException;
+        var message = api?.Message ?? ex.Message;
+        return api?.ErrorCode == "VALIDATION_ERROR" || message.Contains("Request validation failed", StringComparison.OrdinalIgnoreCase)
+            ? "Satış verisi doğrulanamadı. Filtreleri kontrol edip tekrar deneyin."
+            : message;
     }
 }

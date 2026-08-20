@@ -1,7 +1,7 @@
 <UserControl x:Class="FuelMind.Desktop.Views.SalesHistoryView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-  <Grid Margin="28">
+  <Grid Margin="{DynamicResource PageContentMargin}">
     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
     <StackPanel Orientation="Horizontal">
       <TextBlock FontSize="28" FontWeight="SemiBold" Foreground="{DynamicResource AppForegroundBrush}" Text="Satışlar"/>
@@ -11,6 +11,7 @@
     </StackPanel>
     <Grid Grid.Row="1" Margin="0,16,0,0">
       <Grid.ColumnDefinitions><ColumnDefinition Width="2*" MinWidth="700"/><ColumnDefinition Width="1.1*" MinWidth="360"/></Grid.ColumnDefinitions>
+      <Grid>
       <DataGrid AutoGenerateColumns="False" ItemsSource="{Binding Sales}" SelectedItem="{Binding SelectedSale, Mode=TwoWay}" IsReadOnly="True" RowHeight="34">
         <DataGrid.Columns>
           <DataGridTextColumn Header="Tarih" Width="1.2*" Binding="{Binding SaleTimestamp, StringFormat={}{0:dd.MM.yyyy HH:mm}}"/>
@@ -23,6 +24,8 @@
           <DataGridTextColumn Header="Durum" Width="1*" Binding="{Binding SaleStatus}"/>
         </DataGrid.Columns>
       </DataGrid>
+      <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource MutedForegroundBrush}" Text="{Binding EmptyStateMessage}"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding IsEmpty}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+      </Grid>
       <Border Grid.Column="1" Margin="16,0,0,0" Padding="18" MinWidth="360" Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1">
         <ScrollViewer VerticalScrollBarVisibility="Auto" Background="{DynamicResource CardBrush}">
           <StackPanel>
@@ -36,7 +39,7 @@
             <TextBlock Margin="0,12,0,4" FontWeight="SemiBold" Text="Fiyat"/>
             <TextBlock Text="{Binding SelectedSale.ListUnitPrice, StringFormat=Liste: {0:N2} TL, TargetNullValue=Liste: —}"/><TextBlock Text="{Binding SelectedSale.DiscountRate, StringFormat=İskonto: {0:N2}%, TargetNullValue=İskonto: —}"/><TextBlock Text="{Binding SelectedSale.UnitPrice, StringFormat=Uygulanan: {0:N2} TL}"/><TextBlock Text="{Binding SelectedSale.TotalAmount, StringFormat=Toplam: {0:N2} TL}"/>
             <TextBlock Margin="0,12,0,4" FontWeight="SemiBold" Text="İşlem"/>
-            <TextBlock Text="{Binding SelectedSale.PaymentType, StringFormat=Ödeme: {0}, TargetNullValue=Ödeme: —}"/><TextBlock Text="{Binding SelectedSale.SaleStatus, StringFormat=Durum: {0}}"/><TextBlock Text="{Binding SelectedSale.SaleTimestamp, StringFormat=Tarih: {0:dd.MM.yyyy HH:mm}}"/>
+            <TextBlock Text="{Binding SelectedSale.PaymentType, StringFormat=Ödeme: {0}, TargetNullValue=Ödeme: —}"/><TextBlock Text="{Binding SelectedSale.SaleStatus, StringFormat=Durum: {0}}"/><TextBlock Text="{Binding SelectedSale.AttendantLabel, StringFormat=Pompacı: {0}}"/><TextBlock Text="{Binding SelectedSale.ShiftLabel, StringFormat=Vardiya: {0}}"/><TextBlock Text="{Binding SelectedSale.SaleTimestamp, StringFormat=Tarih: {0:dd.MM.yyyy HH:mm}}"/>
           </StackPanel>
         </ScrollViewer>
       </Border>

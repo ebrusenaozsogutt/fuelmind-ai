@@ -41,14 +41,16 @@
     <SolidColorBrush x:Key="AiRiskHIGHBrush" Color="#B91C1C" />
     <SolidColorBrush x:Key="AiRiskCRITICALBrush" Color="#7F1D1D" />
     <SolidColorBrush x:Key="AiRiskDefaultBrush" Color="#64748B" />
+    <Thickness x:Key="PageContentMargin">28</Thickness>
+    <Thickness x:Key="PageHeaderMargin">28,0</Thickness>
     <converters:AlarmSeverityToBrushConverter x:Key="AlarmSeverityToBrushConverter" />
     <converters:AlarmStatusToBrushConverter x:Key="AlarmStatusToBrushConverter" />
     <converters:AiRiskLevelToBrushConverter x:Key="AiRiskLevelToBrushConverter" />
     <Style x:Key="SidebarButtonStyle" TargetType="Button">
-        <Setter Property="Margin" Value="8,3" /><Setter Property="Padding" Value="14,10" />
-        <Setter Property="HorizontalContentAlignment" Value="Left" /><Setter Property="Foreground" Value="#F4F7FA" />
+        <Setter Property="Margin" Value="10,2" /><Setter Property="Padding" Value="12,7" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" /><Setter Property="VerticalContentAlignment" Value="Center" /><Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
         <Setter Property="Background" Value="Transparent" /><Setter Property="BorderBrush" Value="Transparent" />
-        <Setter Property="MinHeight" Value="42" />
+        <Setter Property="Height" Value="36" />
         <Style.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="{DynamicResource RowHoverBrush}" /></Trigger></Style.Triggers>
     </Style>
     <Style x:Key="DashboardCardStyle" TargetType="Border">
@@ -78,11 +80,13 @@
     </Style>
     <!-- Shared semantic device status treatment for the live topology. -->
     <Style x:Key="StatusBadgeStyle" TargetType="Border">
-        <Setter Property="MinWidth" Value="76" />
-        <Setter Property="Padding" Value="8,3" />
-        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="MinWidth" Value="62" />
+        <Setter Property="Padding" Value="6,2" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="MinHeight" Value="20" />
         <Setter Property="Background" Value="{DynamicResource InactiveBrush}" />
         <Setter Property="TextElement.Foreground" Value="{DynamicResource AppForegroundBrush}" />
+        <Setter Property="TextElement.FontSize" Value="11" />
         <Style.Triggers>
             <DataTrigger Binding="{Binding Status}" Value="ACTIVE"><Setter Property="Background" Value="{DynamicResource SuccessBrush}" /></DataTrigger>
             <DataTrigger Binding="{Binding Status}" Value="ONLINE"><Setter Property="Background" Value="{DynamicResource SuccessBrush}" /></DataTrigger>
@@ -93,7 +97,44 @@
             <DataTrigger Binding="{Binding Status}" Value="CRITICAL"><Setter Property="Background" Value="{DynamicResource DangerBrush}" /></DataTrigger>
         </Style.Triggers>
     </Style>
+    <Style x:Key="TopologyStatusBadgeStyle" TargetType="Border" BasedOn="{StaticResource StatusBadgeStyle}">
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="MinHeight" Value="26" />
+        <Setter Property="Padding" Value="8,3" />
+        <Setter Property="CornerRadius" Value="13" />
+    </Style>
     <Style x:Key="AlarmSidebarButtonStyle" TargetType="Button" BasedOn="{StaticResource SidebarButtonStyle}">
         <Style.Triggers><DataTrigger Binding="{Binding CurrentPageTitle}" Value="Alarm Merkezi"><Setter Property="Background" Value="#29485A" /><Setter Property="FontWeight" Value="SemiBold" /><Setter Property="BorderBrush" Value="#38BDF8" /><Setter Property="BorderThickness" Value="3,0,0,0" /></DataTrigger></Style.Triggers>
+    </Style>
+    <Style x:Key="SecondaryActionButtonStyle" TargetType="Button">
+        <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
+        <Setter Property="Background" Value="{DynamicResource ControlBackgroundBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="9,4" />
+        <Setter Property="MinHeight" Value="28" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="{DynamicResource RowHoverBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" /></Trigger>
+            <Trigger Property="IsEnabled" Value="False"><Setter Property="Foreground" Value="{DynamicResource DisabledForegroundBrush}" /><Setter Property="Opacity" Value="0.72" /></Trigger>
+        </Style.Triggers>
+    </Style>
+    <Style x:Key="DashboardCompactActionButton" TargetType="Button" BasedOn="{StaticResource SecondaryActionButtonStyle}">
+        <Setter Property="Height" Value="32" />
+        <Setter Property="Padding" Value="10,4" />
+    </Style>
+    <Style x:Key="LiveConnectionBadgeStyle" TargetType="Border">
+        <Setter Property="MinHeight" Value="26" />
+        <Setter Property="Padding" Value="8,3" />
+        <Setter Property="Background" Value="{DynamicResource ControlBackgroundBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="13" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding ConnectionDisplay}" Value="Connected"><Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" /></DataTrigger>
+        </Style.Triggers>
     </Style>
 </ResourceDictionary>

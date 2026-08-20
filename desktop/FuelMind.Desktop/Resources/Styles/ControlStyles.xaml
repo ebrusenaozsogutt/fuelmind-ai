@@ -487,6 +487,15 @@
     </Style>
     <Style TargetType="DataGrid" BasedOn="{StaticResource DarkDataGridStyle}" />
 
+    <Style x:Key="DarkProgressBarStyle" TargetType="ProgressBar">
+        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="Background" Value="{DynamicResource ControlBackgroundBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Height" Value="6" />
+    </Style>
+    <Style TargetType="ProgressBar" BasedOn="{StaticResource DarkProgressBarStyle}" />
+
     <Style x:Key="DarkListBoxItemStyle" TargetType="ListBoxItem">
         <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
         <Setter Property="TextElement.Foreground" Value="{DynamicResource AppForegroundBrush}" />
@@ -522,4 +531,5 @@
     </Style>
     <Style x:Key="CommercialTabItemStyle" TargetType="TabItem"><Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}"/><Setter Property="Background" Value="{DynamicResource ControlBackgroundBrush}"/><Setter Property="Padding" Value="12,8"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TabItem"><Border x:Name="TabBorder" Background="{TemplateBinding Background}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1,1,1,0" Padding="{TemplateBinding Padding}" Margin="0,0,4,0" CornerRadius="4,4,0,0"><ContentPresenter ContentSource="Header" TextElement.Foreground="{TemplateBinding Foreground}"/></Border><ControlTemplate.Triggers><Trigger Property="IsSelected" Value="True"><Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource RowSelectedBrush}"/><Setter TargetName="TabBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/></Trigger><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource RowHoverBrush}"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>
     <Style x:Key="CommercialTabControlStyle" TargetType="TabControl"><Setter Property="Background" Value="{DynamicResource CardBrush}"/><Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}"/><Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="ItemContainerStyle" Value="{StaticResource CommercialTabItemStyle}"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TabControl"><Grid KeyboardNavigation.TabNavigation="Local"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><TabPanel Grid.Row="0" IsItemsHost="True" Background="{DynamicResource CardBrush}" Margin="8,8,8,0"/><Border Grid.Row="1" Margin="8" Padding="8" Background="{DynamicResource CardBrush}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4"><ContentPresenter ContentSource="SelectedContent" TextElement.Foreground="{DynamicResource AppForegroundBrush}"/></Border></Grid></ControlTemplate></Setter.Value></Setter></Style>
+    <Style TargetType="TabControl" BasedOn="{StaticResource CommercialTabControlStyle}" />
 </ResourceDictionary>

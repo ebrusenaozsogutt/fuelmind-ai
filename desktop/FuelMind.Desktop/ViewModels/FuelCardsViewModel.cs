@@ -9,6 +9,7 @@ namespace FuelMind.Desktop.ViewModels;
 
 public sealed partial class FuelCardsViewModel(ICommercialService commercialService, IStationService stationService, AuthState authState) : ObservableObject
 {
+    private int _configurationLoadVersion;
     public ObservableCollection<FuelCardReadDto> Cards { get; } = [];
     public ObservableCollection<FuelCardLimitReadDto> Limits { get; } = [];
     public ObservableCollection<FuelCardAllowedStationDto> AllowedStations { get; } = [];
@@ -71,6 +72,7 @@ public sealed partial class FuelCardsViewModel(ICommercialService commercialServ
     public decimal CardAvailableCredit => CardCreditLimit - CardCreditUsed;
     public bool HasUsageWindows => UsageWindows.Count > 0;
     public bool HasNoUsageWindows => !HasUsageWindows;
+    public bool HasLimits => Limits.Count > 0;
     public bool IsEmpty => !IsLoading && Cards.Count == 0 && string.IsNullOrEmpty(ErrorMessage);
 
     partial void OnSelectedCardChanged(FuelCardReadDto? value) { _ = LoadConfigurationAsync(value); OnPropertyChanged(nameof(CardCreditUsed)); }
@@ -87,6 +89,7 @@ public sealed partial class FuelCardsViewModel(ICommercialService commercialServ
 
     [RelayCommand] public async Task LoadAsync() => await ExecuteAsync(async () =>
     {
+        var selectedCardId = SelectedCard?.Id;
         var cardsTask = commercialService.GetFuelCardsAsync(SearchText);
         var vehiclesTask = commercialService.GetVehiclesAsync();
         var groupsTask = commercialService.GetFleetGroupsAsync();
@@ -115,7 +118,12 @@ public sealed partial class FuelCardsViewModel(ICommercialService commercialServ
             }
         }
         Replace(Cards, loadedCards);
-        SelectedCard ??= Cards.FirstOrDefault(); OnPropertyChanged(nameof(IsEmpty));
+        // Replace the selected row with the refreshed instance so its child
+        // configuration (especially limits) is reloaded after every card refresh.
+        SelectedCard = selectedCardId is int id
+            ? Cards.FirstOrDefault(card => card.Id == id) ?? Cards.FirstOrDefault()
+            : Cards.FirstOrDefault();
+        OnPropertyChanged(nameof(IsEmpty));
     });
     [RelayCommand] public async Task OpenCreateCardAsync()
     {
@@ -185,11 +193,52 @@ public sealed partial class FuelCardsViewModel(ICommercialService commercialServ
     private async Task LoadFleetsAsync(CustomerReadDto? customer) { Fleets.Clear(); FleetGroups.Clear(); Vehicles.Clear(); SelectedFleet = null; SelectedFleetGroup = null; SelectedVehicle = null; if (customer is null) return; try { Replace(Fleets, await commercialService.GetFleetsAsync(customer.Id)); } catch (Exception ex) { ErrorMessage = ToMessage(ex); } }
     private async Task LoadGroupsAsync(FleetReadDto? fleet) { FleetGroups.Clear(); Vehicles.Clear(); SelectedFleetGroup = null; SelectedVehicle = null; if (fleet is null) return; try { Replace(FleetGroups, await commercialService.GetFleetGroupsAsync(fleet.Id)); } catch (Exception ex) { ErrorMessage = ToMessage(ex); } }
     private async Task LoadVehiclesAsync(FleetGroupReadDto? group) { Vehicles.Clear(); SelectedVehicle = null; if (group is null) return; try { var vehicles = await commercialService.GetVehiclesAsync(group.Id); var activeCardVehicleIds = Cards.Where(card => card.IsActive && string.Equals(card.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase)).Select(card => card.VehicleId).ToHashSet(); foreach (var vehicle in vehicles) vehicle.HasActiveFuelCard = activeCardVehicleIds.Contains(vehicle.Id); Replace(Vehicles, vehicles); } catch (Exception ex) { ErrorMessage = ToMessage(ex); } }
-    private async Task LoadConfigurationAsync(FuelCardReadDto? card) { Limits.Clear(); AllowedStations.Clear(); AllowedFuelTypes.Clear(); UsageWindows.Clear(); AuthorizationMessage = null; OnPropertyChanged(nameof(HasUsageWindows)); OnPropertyChanged(nameof(HasNoUsageWindows)); if (card is null) return; try { var lt = commercialService.GetCardLimitsAsync(card.Id); var st = commercialService.GetAllowedStationsAsync(card.Id); var ft = commercialService.GetAllowedFuelTypesAsync(card.Id); var wt = commercialService.GetUsageWindowsAsync(card.Id); var stations = stationService.GetActiveStationsAsync(); var fuelTypes = stationService.GetFuelTypesAsync(); await Task.WhenAll(lt, st, ft, wt, stations, fuelTypes); var stationNames = (await stations).ToDictionary(item => item.Id, item => item.DisplayName); var fuelNames = (await fuelTypes).ToDictionary(item => item.Id, item => item.DisplayName); var allowedStations = await st; foreach (var item in allowedStations) item.StationDisplayName = stationNames.GetValueOrDefault(item.StationId, $"İstasyon #{item.StationId}"); var allowedFuelTypes = await ft; foreach (var item in allowedFuelTypes) item.FuelTypeDisplayName = fuelNames.GetValueOrDefault(item.FuelTypeId, $"Yakıt #{item.FuelTypeId}"); Replace(Limits, await lt); Replace(AllowedStations, allowedStations); Replace(AllowedFuelTypes, allowedFuelTypes); Replace(UsageWindows, await wt); OnPropertyChanged(nameof(HasUsageWindows)); OnPropertyChanged(nameof(HasNoUsageWindows)); } catch (Exception ex) { ErrorMessage = ToMessage(ex); } }
+    private async Task LoadConfigurationAsync(FuelCardReadDto? card)
+    {
+        var version = Interlocked.Increment(ref _configurationLoadVersion);
+        Limits.Clear(); AllowedStations.Clear(); AllowedFuelTypes.Clear(); UsageWindows.Clear(); AuthorizationMessage = null;
+        OnPropertyChanged(nameof(HasUsageWindows)); OnPropertyChanged(nameof(HasNoUsageWindows)); OnPropertyChanged(nameof(HasLimits));
+        if (card is null) return;
+        try
+        {
+            var limitsTask = commercialService.GetCardLimitsAsync(card.Id);
+            var stationsTask = commercialService.GetAllowedStationsAsync(card.Id);
+            var fuelTypesTask = commercialService.GetAllowedFuelTypesAsync(card.Id);
+            var windowsTask = commercialService.GetUsageWindowsAsync(card.Id);
+            var stationCatalogTask = stationService.GetActiveStationsAsync();
+            var fuelCatalogTask = stationService.GetFuelTypesAsync();
+            await Task.WhenAll(limitsTask, stationsTask, fuelTypesTask, windowsTask, stationCatalogTask, fuelCatalogTask);
+            if (version != Volatile.Read(ref _configurationLoadVersion)) return;
+
+            var stationNames = (await stationCatalogTask).ToDictionary(item => item.Id, item => item.DisplayName);
+            var fuelNames = (await fuelCatalogTask).ToDictionary(item => item.Id, item => item.DisplayName);
+            var allowedStations = await stationsTask;
+            foreach (var item in allowedStations) item.StationDisplayName = stationNames.GetValueOrDefault(item.StationId, $"İstasyon #{item.StationId}");
+            var allowedFuelTypes = await fuelTypesTask;
+            foreach (var item in allowedFuelTypes) item.FuelTypeDisplayName = fuelNames.GetValueOrDefault(item.FuelTypeId, $"Yakıt #{item.FuelTypeId}");
+            Replace(Limits, await limitsTask);
+            Replace(AllowedStations, allowedStations);
+            Replace(AllowedFuelTypes, allowedFuelTypes);
+            Replace(UsageWindows, await windowsTask);
+            OnPropertyChanged(nameof(HasUsageWindows)); OnPropertyChanged(nameof(HasNoUsageWindows));
+            OnPropertyChanged(nameof(HasLimits));
+        }
+        catch (Exception ex)
+        {
+            if (version == Volatile.Read(ref _configurationLoadVersion)) ErrorMessage = ToMessage(ex);
+        }
+    }
     private bool ValidateCard() { if (string.IsNullOrWhiteSpace(CardDisplayName) || string.IsNullOrWhiteSpace(CardCode) || string.IsNullOrWhiteSpace(CardUnitId) || (!IsEditingCard && SelectedVehicle is null)) { ErrorMessage = "Araç, kart adı, kart kodu ve ID Unit zorunludur."; return false; } if (ActiveCardVehicleWarning) { ErrorMessage = "Bu aracın zaten aktif bir yakıt kartı bulunuyor. Mevcut kartı pasifleştirin veya farklı araç seçin."; return false; } if (CardValidUntil is not null && CardValidUntil.Value.Date < CardValidFrom.Date) { ErrorMessage = "Geçerlilik bitişi başlangıçtan önce olamaz."; return false; } return true; }
     private bool EnsureAdmin() { if (IsAdmin) return true; ErrorMessage = "Bu işlem yalnızca ADMIN rolü için kullanılabilir."; return false; }
     private async Task ExecuteAsync(Func<Task> action) { if (IsLoading) return; IsLoading = true; ErrorMessage = null; try { await action(); } catch (Exception ex) { ErrorMessage = ToMessage(ex); } finally { IsLoading = false; } }
-    private static string ToMessage(Exception ex) => ex is ApiException api ? api.Message : ex.Message;
+    private static string ToMessage(Exception ex)
+    {
+        var api = ex as ApiException;
+        var message = api?.Message ?? ex.Message;
+        return api?.ErrorCode == "VALIDATION_ERROR" || message.Contains("Request validation failed", StringComparison.OrdinalIgnoreCase)
+            ? "Girilen kart bilgileri doğrulanamadı. Zorunlu alanları kontrol edin."
+            : message;
+    }
     private static void Replace<T>(ObservableCollection<T> target, IEnumerable<T> source) { target.Clear(); foreach (var item in source) target.Add(item); }
     private static void ReplaceOrAdd(ObservableCollection<FuelCardReadDto> target, FuelCardReadDto item) { var index = target.ToList().FindIndex(x => x.Id == item.Id); if (index >= 0) target[index] = item; else target.Add(item); }
 }

@@ -30,6 +30,19 @@ public sealed class ApiClient
     public Task<T> GetAsync<T>(string relativePath, CancellationToken cancellationToken = default) =>
         SendAsync<T>(HttpMethod.Get, relativePath, content: null, cancellationToken);
 
+    /// <summary>Reads an endpoint whose documented successful response is an optional JSON object.</summary>
+    public async Task<T?> GetOrDefaultAsync<T>(string relativePath, CancellationToken cancellationToken = default)
+        where T : class
+    {
+        using var response = await SendRequestAsync(HttpMethod.Get, relativePath, content: null, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        return string.IsNullOrWhiteSpace(body)
+            ? null
+            : JsonSerializer.Deserialize<T>(body, _jsonOptions);
+    }
+
     public Task<TResponse> PostAsync<TRequest, TResponse>(
         string relativePath,
         TRequest request,

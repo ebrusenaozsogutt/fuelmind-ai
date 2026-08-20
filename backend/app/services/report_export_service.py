@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import csv
 from datetime import date, datetime
+from html import escape
 from io import BytesIO, StringIO
 from pathlib import Path
 from typing import Any
@@ -67,11 +68,11 @@ class ReportExportService:
         for style in styles.byName.values():
             style.fontName = font
         doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=24, rightMargin=24, topMargin=24, bottomMargin=24)
-        story = [Paragraph("FuelMind AI", styles["Title"]), Paragraph(title, styles["Heading2"]), Paragraph(f"Oluşturulma: {utc_now().isoformat()}", styles["Normal"]), Paragraph(f"Filtreler: {self._filter_text(filters)}", styles["Normal"]), Spacer(1, 10)]
+        story = [Paragraph("FuelMind AI", styles["Title"]), Paragraph(escape(title), styles["Heading2"]), Paragraph(f"Oluşturulma: {utc_now().isoformat()}", styles["Normal"]), Paragraph(f"Filtreler: {escape(self._filter_text(filters))}", styles["Normal"]), Spacer(1, 10)]
         columns = self._columns(rows)
-        data = [[Paragraph(str(key), styles["BodyText"]) for key in columns]]
+        data = [[Paragraph(escape(str(key)), styles["BodyText"]) for key in columns]]
         for row in rows:
-            data.append([Paragraph(self._text(row.get(key))[:160], styles["BodyText"]) for key in columns])
+            data.append([Paragraph(escape(self._text(row.get(key))[:160]), styles["BodyText"]) for key in columns])
         if len(data) == 1:
             data.append([Paragraph("Kayıt bulunamadı.", styles["BodyText"])] + [""] * max(0, len(columns) - 1))
         table = Table(data, repeatRows=1, colWidths=[max(55, 760 / max(1, len(columns)))] * len(columns))
@@ -97,8 +98,21 @@ class ReportExportService:
         return ", ".join(f"{key}={value}" for key, value in filters.model_dump(exclude_none=True).items()) or "Yok"
     @staticmethod
     def _font() -> str:
-        path = Path("C:/Windows/Fonts/DejaVuSans.ttf")
-        if path.exists():
-            pdfmetrics.registerFont(TTFont("FuelMindUnicode", str(path)))
-            return "FuelMindUnicode"
+        # The old DejaVu path does not exist on normal Windows installations,
+        # causing ReportLab to fall back to Helvetica and render Turkish glyphs
+        # as boxes. Use system Unicode fonts available on supported runtimes.
+        paths = (
+            Path("C:/Windows/Fonts/arial.ttf"),
+            Path("C:/Windows/Fonts/segoeui.ttf"),
+            Path("C:/Windows/Fonts/calibri.ttf"),
+            Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+            Path("/usr/share/fonts/dejavu/DejaVuSans.ttf"),
+        )
+        for path in paths:
+            if not path.exists():
+                continue
+            font_name = f"FuelMindUnicode{path.stem}"
+            if font_name not in pdfmetrics.getRegisteredFontNames():
+                pdfmetrics.registerFont(TTFont(font_name, str(path)))
+            return font_name
         return "Helvetica"

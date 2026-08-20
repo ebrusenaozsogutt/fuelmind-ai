@@ -38,6 +38,7 @@ public sealed partial class AuthenticatedShellViewModel : ObservableObject
         _customers=customers;_fuelCards=fuelCards;_fuelPrices=fuelPrices;_salesHistory=salesHistory;_endOfDayAlarmReport=endOfDayAlarmReport;_reports=reports;_faults=faults;_attendants=attendants;
         _tankDetail=tankDetail;_pumpDetail=pumpDetail; nav.TankRequested+=id=>{_tankDetail.Select(id);ShowPage(_tankDetail,"Tank Detail");};nav.PumpRequested+=id=>{_pumpDetail.Select(id);ShowPage(_pumpDetail,"Pump Detail");};nav.BackToTanksRequested+=()=>ShowPage(_tanksViewModel,"Tanklar");nav.BackToPumpsRequested+=()=>ShowPage(_pumpsViewModel,"Pompalar");
         nav.AlarmsRequested += filter => { _alarms.ApplyNavigationFilter(filter); ShowPage(_alarms, "Alarm Merkezi"); _ = _alarms.LoadAsync(); };
+        nav.FaultRequested += id => { ShowPage(_faults, "Arıza Yönetimi"); _ = _faults.OpenFaultAsync(id); };
         nav.PumpsRequested += () => ShowPage(_pumpsViewModel, "Pompalar");
         nav.TanksRequested += () => ShowPage(_tanksViewModel, "Tanklar");
         nav.LiveRiskRequested += () => { ShowPage(_liveMonitoringViewModel, "Canlı İzleme"); _ = _liveMonitoringViewModel.ConnectForSelectedStationAsync(); };

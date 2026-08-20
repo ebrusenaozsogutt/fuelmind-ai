@@ -5,18 +5,18 @@
     <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
   </UserControl.Resources>
   <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-    <StackPanel Margin="28">
-      <DockPanel Margin="0,0,0,18">
+    <StackPanel Margin="{DynamicResource PageContentMargin}">
+      <DockPanel Margin="0,0,0,18" LastChildFill="False">
         <StackPanel>
           <TextBlock Style="{StaticResource PageTitleStyle}" Text="Operasyon Merkezi" />
           <TextBlock Margin="0,5,0,0" Foreground="{DynamicResource MutedForegroundBrush}" Text="İstasyonun canlı durumu, riskleri ve operasyon özeti" />
         </StackPanel>
-        <Border DockPanel.Dock="Right" VerticalAlignment="Center" Padding="10,5" Background="{DynamicResource AccentSoftBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1" CornerRadius="14">
+        <Border DockPanel.Dock="Right" VerticalAlignment="Center" Style="{StaticResource LiveConnectionBadgeStyle}">
           <StackPanel Orientation="Horizontal">
-            <TextBlock Foreground="{DynamicResource SuccessForegroundBrush}" FontWeight="Bold" Text="●" />
-            <TextBlock Margin="5,0,0,0" FontWeight="SemiBold" Text="CANLI" />
-            <TextBlock Margin="5,0,0,0" Foreground="{DynamicResource MutedForegroundBrush}" Text="·" />
-            <TextBlock Margin="5,0,0,0" Text="{Binding ConnectionDisplay}" />
+            <TextBlock FontSize="10" Foreground="{DynamicResource SuccessForegroundBrush}" FontWeight="Bold" Text="●" />
+            <TextBlock Margin="4,0,0,0" FontSize="11" FontWeight="SemiBold" Text="{Binding ConnectionStatusLabel}" />
+            <TextBlock Margin="4,0,0,0" Foreground="{DynamicResource MutedForegroundBrush}" Text="·" />
+            <TextBlock Margin="4,0,0,0" FontSize="11" Text="{Binding ConnectionDisplay}" />
           </StackPanel>
         </Border>
       </DockPanel>
@@ -40,7 +40,7 @@
         </Border>
         <Border Grid.Column="1" Style="{StaticResource SectionCardStyle}">
           <StackPanel>
-            <DockPanel><TextBlock Style="{StaticResource SectionTitleStyle}" Text="Risk ve Alarmlar"/><Button DockPanel.Dock="Right" Command="{Binding OpenActiveAlarmsCommand}" Content="Alarmlar"/></DockPanel>
+            <DockPanel LastChildFill="False"><TextBlock Style="{StaticResource SectionTitleStyle}" Text="Risk ve Alarmlar"/><Button DockPanel.Dock="Right" Style="{StaticResource DashboardCompactActionButton}" Command="{Binding OpenActiveAlarmsCommand}" Content="Alarmlar"/></DockPanel>
             <TextBlock Margin="0,16,0,0" Text="{Binding HighRiskEquipment, StringFormat=Yüksek / kritik ekipman: {0}}"/>
             <TextBlock Margin="0,8,0,0" Text="{Binding MostRiskyEquipment, StringFormat=En riskli: {0}}" TextWrapping="Wrap"/>
             <TextBlock Margin="0,8,0,0" Foreground="{DynamicResource MutedForegroundBrush}" Text="{Binding LastAiAssessment, StringFormat=Son AI değerlendirmesi: {0}}"/>
@@ -52,7 +52,7 @@
         <Grid.ColumnDefinitions><ColumnDefinition Width="1.25*" MinWidth="400"/><ColumnDefinition Width="*" MinWidth="300"/></Grid.ColumnDefinitions>
         <Border Style="{StaticResource SectionCardStyle}" Margin="0,0,20,20">
           <StackPanel>
-            <DockPanel><TextBlock Style="{StaticResource SectionTitleStyle}" Text="Tank Durumları"/><Button DockPanel.Dock="Right" Command="{Binding OpenTanksCommand}" Content="Tankları Aç"/></DockPanel>
+            <DockPanel LastChildFill="False"><TextBlock Style="{StaticResource SectionTitleStyle}" Text="Tank Durumları"/><Button DockPanel.Dock="Right" Style="{StaticResource DashboardCompactActionButton}" Command="{Binding OpenTanksCommand}" Content="Tanklar"/></DockPanel>
             <Grid Margin="0,14,0,0">
               <ItemsControl ItemsSource="{Binding Tanks}"><ItemsControl.Style><Style TargetType="ItemsControl"><Setter Property="Visibility" Value="Visible"/><Style.Triggers><DataTrigger Binding="{Binding HasTanks}" Value="False"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></ItemsControl.Style><ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="3"/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><Border Margin="0,0,10,0" Padding="13" Background="{DynamicResource ControlBackgroundBrush}" CornerRadius="8"><StackPanel><TextBlock FontWeight="SemiBold" Text="{Binding Code, TargetNullValue=Tank}" TextTrimming="CharacterEllipsis"/><TextBlock Margin="0,8,0,0" FontSize="19" FontWeight="SemiBold" Text="{Binding MeasuredLevelLiters, StringFormat={}{0:N0} L}"/><ProgressBar Margin="0,10,0,6" Height="8" Minimum="0" Maximum="{Binding CapacityLiters}" Value="{Binding MeasuredLevelLiters}"/><TextBlock Foreground="{DynamicResource MutedForegroundBrush}" Text="{Binding Temperature, StringFormat=Sıcaklık {0:N1} °C}" TextTrimming="CharacterEllipsis"/><TextBlock Foreground="{DynamicResource MutedForegroundBrush}" Text="{Binding WaterLevel, StringFormat=Su {0:N1} L}" TextTrimming="CharacterEllipsis"/></StackPanel></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
               <TextBlock Foreground="{DynamicResource MutedForegroundBrush}" Text="Henüz tank verisi bulunmuyor."><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding HasTanks}" Value="False"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
@@ -61,9 +61,9 @@
         </Border>
         <Border Grid.Column="1" Style="{StaticResource SectionCardStyle}">
           <StackPanel>
-            <DockPanel><TextBlock Style="{StaticResource SectionTitleStyle}" Text="Pompa Sağlığı"/><Button DockPanel.Dock="Right" Command="{Binding OpenPumpsCommand}" Content="Pompaları Aç"/></DockPanel>
+            <DockPanel LastChildFill="False"><TextBlock Style="{StaticResource SectionTitleStyle}" Text="Pompa Sağlığı"/><Button DockPanel.Dock="Right" Style="{StaticResource DashboardCompactActionButton}" Command="{Binding OpenPumpsCommand}" Content="Pompalar"/></DockPanel>
             <Grid Margin="0,14,0,0">
-              <ScrollViewer MaxHeight="220" VerticalScrollBarVisibility="Auto"><ItemsControl ItemsSource="{Binding Pumps}"><ItemsControl.Style><Style TargetType="ItemsControl"><Setter Property="Visibility" Value="Visible"/><Style.Triggers><DataTrigger Binding="{Binding HasPumps}" Value="False"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></ItemsControl.Style><ItemsControl.ItemTemplate><DataTemplate><Grid Margin="0,0,0,12"><Grid.ColumnDefinitions><ColumnDefinition Width="75"/><ColumnDefinition Width="*"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions><TextBlock FontWeight="SemiBold" Text="{Binding PumpId, StringFormat=P{0:00}}"/><ProgressBar Grid.Column="1" Height="9" VerticalAlignment="Center" Minimum="0" Maximum="100" Value="{Binding AiAnalysis.RiskScore}"/><TextBlock Grid.Column="2" HorizontalAlignment="Right" Text="{Binding AiAnalysis.RiskDisplay, TargetNullValue=Veri yok}"/></Grid></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></ScrollViewer>
+              <ScrollViewer MaxHeight="220" VerticalScrollBarVisibility="Auto"><ItemsControl ItemsSource="{Binding Pumps}"><ItemsControl.Style><Style TargetType="ItemsControl"><Setter Property="Visibility" Value="Visible"/><Style.Triggers><DataTrigger Binding="{Binding HasPumps}" Value="False"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></ItemsControl.Style><ItemsControl.ItemTemplate><DataTemplate><Border Margin="0,0,0,7" Padding="9,7" Background="{DynamicResource ControlBackgroundBrush}" CornerRadius="6"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="52"/><ColumnDefinition Width="66"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding PumpId, StringFormat=P{0:00}}"/><Border Grid.Column="1" VerticalAlignment="Center" Style="{StaticResource StatusBadgeStyle}"><TextBlock HorizontalAlignment="Center" FontSize="10" FontWeight="SemiBold" Text="{Binding Status, TargetNullValue=UNKNOWN}"/></Border><TextBlock Grid.Column="2" Margin="9,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource MutedForegroundBrush}" Text="{Binding FlowRate, StringFormat=Debi {0:N1} L/dk}"/><TextBlock Grid.Column="3" Margin="10,0,0,0" VerticalAlignment="Center" Text="{Binding AiAnalysis.PumpBadgeDisplay, TargetNullValue=Risk değerlendirmesi bekleniyor}" TextTrimming="CharacterEllipsis"/></Grid></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></ScrollViewer>
               <TextBlock Foreground="{DynamicResource MutedForegroundBrush}" Text="Henüz pompa verisi bulunmuyor."><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding HasPumps}" Value="False"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
             </Grid>
           </StackPanel>

@@ -262,6 +262,10 @@ public sealed class SaleReadDto
     [JsonPropertyName("start_totalizer_liters")] public decimal? StartTotalizerLiters { get; init; }
     [JsonPropertyName("end_totalizer_liters")] public decimal? EndTotalizerLiters { get; init; }
     [JsonPropertyName("payment_type")] public string? PaymentType { get; init; }
+    [JsonPropertyName("attendant_id")] public int? AttendantId { get; init; }
+    [JsonPropertyName("shift_id")] public int? ShiftId { get; init; }
+    [JsonPropertyName("attendant_name")] public string? AttendantName { get; init; }
+    [JsonPropertyName("shift_name")] public string? ShiftName { get; init; }
     [JsonIgnore] public string CustomerLabel { get; set; } = "—";
     [JsonIgnore] public string VehicleLabel { get; set; } = "—";
     [JsonIgnore] public string CardLabel { get; set; } = "Legacy / kart yok";
@@ -271,5 +275,7 @@ public sealed class SaleReadDto
     [JsonIgnore] public string StationLabel { get; set; } = "—";
     [JsonIgnore] public string PumpLabel { get; set; } = "—";
     [JsonIgnore] public string FuelTypeLabel { get; set; } = "—";
+    [JsonIgnore] public string AttendantLabel { get; set; } = "—";
+    [JsonIgnore] public string ShiftLabel { get; set; } = "—";
     [JsonIgnore] public string SaleKind => CustomerId is null || VehicleId is null || FuelCardId is null ? "Legacy" : "Ticari";
 }

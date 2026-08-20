@@ -115,5 +115,24 @@ public sealed class CommercialService(ApiClient apiClient) : ICommercialService
     public Task<FuelPriceReadDto> CreateFuelPriceAsync(FuelPriceSaveDto r, CancellationToken ct = default) => apiClient.PostAsync<FuelPriceSaveDto, FuelPriceReadDto>("fuel-prices", r, ct);
     public Task<FuelPriceReadDto> UpdateFuelPriceAsync(int id, FuelPriceSaveDto r, CancellationToken ct = default) => apiClient.PutAsync<FuelPriceSaveDto, FuelPriceReadDto>($"fuel-prices/{id}", r, ct);
     public Task DeactivateFuelPriceAsync(int id, CancellationToken ct = default) => apiClient.DeleteAsync($"fuel-prices/{id}", ct);
-    public Task<IReadOnlyList<SaleReadDto>> GetSalesAsync(int? customerId = null, int? vehicleId = null, int? fuelCardId = null, CancellationToken ct = default) => apiClient.GetAsync<IReadOnlyList<SaleReadDto>>(Query("sales", ("customer_id", customerId), ("vehicle_id", vehicleId), ("fuel_card_id", fuelCardId)), ct);
+    public async Task<IReadOnlyList<SaleReadDto>> GetSalesAsync(int? customerId = null, int? vehicleId = null, int? fuelCardId = null, CancellationToken ct = default)
+    {
+        // The API defaults to 50 rows. Legacy sales are often older than the
+        // commercial feed, so continue through the existing paged endpoint
+        // instead of silently dropping them from the desktop list.
+        const int defaultPageSize = 50;
+        const int pageSize = 100;
+        var path = Query("sales", ("customer_id", customerId), ("vehicle_id", vehicleId), ("fuel_card_id", fuelCardId));
+        var firstPage = await apiClient.GetAsync<IReadOnlyList<SaleReadDto>>(path, ct);
+        if (firstPage.Count < defaultPageSize) return firstPage;
+
+        var sales = new List<SaleReadDto>(firstPage);
+        for (var skip = defaultPageSize; ; skip += pageSize)
+        {
+            var separator = path.Contains('?') ? "&" : "?";
+            var page = await apiClient.GetAsync<IReadOnlyList<SaleReadDto>>($"{path}{separator}skip={skip}&limit={pageSize}", ct);
+            sales.AddRange(page);
+            if (page.Count < pageSize) return sales;
+        }
+    }
 }

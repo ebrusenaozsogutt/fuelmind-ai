@@ -30,9 +30,12 @@ public sealed partial class FieldTopologyViewModel : ObservableObject
         _stationService = stationService;
         _apiClient = apiClient;
         SelectedStationId = liveDataStore.SelectedStationId;
-        _liveDataStore.TopologyChanged += (_, _) => RefreshTopology();
-        _liveDataStore.Pumps.CollectionChanged += (_, _) => RefreshTopology();
-        _liveDataStore.Tanks.CollectionChanged += (_, _) => RefreshTopology();
+        // WebSocket callbacks can originate on a worker thread.  Keep the derived
+        // topology collection mutations on the WPF dispatcher so every live tick
+        // is reflected by the bound items without cross-thread collection access.
+        _liveDataStore.TopologyChanged += (_, _) => RequestTopologyRefresh();
+        _liveDataStore.Pumps.CollectionChanged += (_, _) => RequestTopologyRefresh();
+        _liveDataStore.Tanks.CollectionChanged += (_, _) => RequestTopologyRefresh();
         _liveDataStore.PropertyChanged += (_, args) =>
         {
             if (args.PropertyName == nameof(LiveDataStore.ConnectionState))
@@ -124,7 +127,19 @@ public sealed partial class FieldTopologyViewModel : ObservableObject
         _pumpCatalog = await _apiClient.GetAsync<IReadOnlyList<PumpDto>>(
             $"stations/{SelectedStationId}/pumps?limit=100");
         _liveDataStore.ApplyLiveStatus(snapshot);
-        RefreshTopology();
+        RequestTopologyRefresh();
+    }
+
+    private void RequestTopologyRefresh()
+    {
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher is null || dispatcher.CheckAccess())
+        {
+            RefreshTopology();
+            return;
+        }
+
+        _ = dispatcher.BeginInvoke(new Action(RefreshTopology));
     }
 
     private void RefreshTopology()

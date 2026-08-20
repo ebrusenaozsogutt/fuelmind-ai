@@ -6,7 +6,7 @@
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
     </UserControl.Resources>
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="28">
+        <StackPanel Margin="{DynamicResource PageContentMargin}">
             <TextBlock FontSize="28" FontWeight="SemiBold" Foreground="{DynamicResource AppForegroundBrush}" Text="Canlı İzleme" />
             <Border Style="{StaticResource DashboardCardStyle}" Margin="0,24,0,0">
                 <StackPanel>

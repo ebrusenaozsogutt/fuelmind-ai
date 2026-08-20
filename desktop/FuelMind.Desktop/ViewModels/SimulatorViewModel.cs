@@ -87,7 +87,7 @@ public sealed partial class SimulatorViewModel : ObservableObject
 
             // The backend manager owns the only authoritative runner registry.
             // Do not infer activity from persisted historical run rows.
-            var activeRun = await _apiClient.GetAsync<SimulationRunDto?>(
+            var activeRun = await _apiClient.GetOrDefaultAsync<SimulationRunDto>(
                 $"simulations/active?station_id={StationId}");
             if (activeRun is not null)
             {
@@ -143,6 +143,7 @@ public sealed partial class SimulatorViewModel : ObservableObject
             if (failedTank is null)
             {
                 StockPreparationResult = $"{prepared} tank hazırlandı, {skipped} tank hedef seviyedeydi.";
+                await RefreshActiveRunCoreAsync();
             }
             else
             {
@@ -260,7 +261,7 @@ public sealed partial class SimulatorViewModel : ObservableObject
         {
             CurrentRun = await _apiClient.GetAsync<SimulationRunDto>($"simulations/{CurrentRun.Id}");
         }
-        ActiveRun = await _apiClient.GetAsync<SimulationRunDto?>(
+        ActiveRun = await _apiClient.GetOrDefaultAsync<SimulationRunDto>(
             $"simulations/active?station_id={StationId}");
     }
 

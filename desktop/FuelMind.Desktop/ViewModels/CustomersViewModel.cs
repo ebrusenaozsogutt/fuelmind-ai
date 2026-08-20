@@ -215,7 +215,7 @@ public sealed partial class CustomersViewModel(ICommercialService commercialServ
         if (SelectedDriver is null || SelectedVehicle is null) { ErrorMessage = "Atama için bir sürücü ve araç seçin."; return; }
         await ExecuteAsync(async () =>
         {
-            var item = await commercialService.CreateAssignmentAsync(new DriverVehicleAssignmentSaveDto { DriverId = SelectedDriver.Id, VehicleId = SelectedVehicle.Id, AssignedFrom = DateOnly.FromDateTime(DateTime.Today), Status = "ACTIVE" });
+            await commercialService.CreateAssignmentAsync(new DriverVehicleAssignmentSaveDto { DriverId = SelectedDriver.Id, VehicleId = SelectedVehicle.Id, AssignedFrom = DateOnly.FromDateTime(DateTime.Today), Status = "ACTIVE" });
             Replace(Assignments, await commercialService.GetAssignmentsAsync(vehicleId: SelectedVehicle.Id));
         });
     }
@@ -301,11 +301,18 @@ public sealed partial class CustomersViewModel(ICommercialService commercialServ
     private static string? Blank(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     private static string ToMessage(Exception ex)
     {
-        var message = ex is ApiException api ? api.Message : ex.Message;
+        var api = ex as ApiException;
+        var message = api?.Message ?? ex.Message;
         return message switch
         {
+            _ when api?.ErrorCode == "VALIDATION_ERROR" || message.Contains("Request validation failed", StringComparison.OrdinalIgnoreCase) => "Girilen bilgiler doğrulanamadı. Zorunlu alanları ve biçimlerini kontrol edin.",
             var text when text.Contains("already exists", StringComparison.OrdinalIgnoreCase) => "Bu kod zaten kullanılıyor.",
             var text when text.Contains("active fuel card", StringComparison.OrdinalIgnoreCase) => "Bu araca zaten aktif bir kart tanımlı.",
+            var text when text.Contains("Driver assignment overlaps", StringComparison.OrdinalIgnoreCase) => "Seçili sürücünün bu tarih aralığında başka bir araç ataması bulunuyor.",
+            var text when text.Contains("Vehicle already has another driver", StringComparison.OrdinalIgnoreCase) => "Seçili araçta bu tarih aralığında başka bir sürücü ataması bulunuyor.",
+            var text when text.Contains("Assignment end date", StringComparison.OrdinalIgnoreCase) => "Atama bitiş tarihi başlangıç tarihinden önce olamaz.",
+            var text when text.Contains("Driver is inactive", StringComparison.OrdinalIgnoreCase) => "Pasif bir sürücü araca atanamaz.",
+            var text when text.Contains("Vehicle hierarchy is inactive", StringComparison.OrdinalIgnoreCase) => "Araç, bağlı olduğu müşteri hiyerarşisi pasif olduğu için atanamaz.",
             var text when text.Contains("primary", StringComparison.OrdinalIgnoreCase) => "Bu müşteri için birincil yetkili kuralı sağlanamadı.",
             _ => message,
         };

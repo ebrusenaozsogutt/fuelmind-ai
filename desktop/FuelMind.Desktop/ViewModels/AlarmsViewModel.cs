@@ -35,7 +35,9 @@ public sealed partial class AlarmsViewModel : ObservableObject
     [ObservableProperty] private bool _isLoading;
     [ObservableProperty] private bool _isDetailLoading;
     [ObservableProperty] private bool _isFaultLoading;
-    [ObservableProperty] private FaultDto? _relatedFault;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanOpenRelatedFault))]
+    private FaultDto? _relatedFault;
     [ObservableProperty] private string? _lastError;
 
     public IReadOnlyList<string> StatusFilters { get; } =
@@ -49,13 +51,16 @@ public sealed partial class AlarmsViewModel : ObservableObject
     public string FaultRelationText => RelatedFault is null
         ? "İlişkili arıza kaydı yok"
         : $"İlişkili Arıza: #{RelatedFault.Id}\nKod: {RelatedFault.FaultCode}\nDurum: {RelatedFault.Status}";
+    public bool CanOpenRelatedFault => RelatedFault is not null && _navigation is not null;
 
     private readonly IFaultService? _faultService;
+    private readonly DetailNavigationService? _navigation;
 
-    public AlarmsViewModel(IAlarmService service, LiveWebSocketService socket, IFaultService? faultService = null)
+    public AlarmsViewModel(IAlarmService service, LiveWebSocketService socket, IFaultService? faultService = null, DetailNavigationService? navigation = null)
     {
         _service = service;
         _faultService = faultService;
+        _navigation = navigation;
         FilteredAlarms = CollectionViewSource.GetDefaultView(Alarms);
         FilteredAlarms.Filter = MatchesFilter;
         socket.MessageReceived += (_, result) =>
@@ -115,6 +120,10 @@ public sealed partial class AlarmsViewModel : ObservableObject
     [RelayCommand] private Task InvestigateAsync() => UpdateAsync("investigate");
     [RelayCommand] private Task ResolveAsync() => UpdateAsync("resolve");
     [RelayCommand] private Task FalsePositiveAsync() => UpdateAsync("false-positive");
+    [RelayCommand] private void OpenRelatedFault()
+    {
+        if (RelatedFault is { Id: > 0 } fault) _navigation?.ShowFault(fault.Id);
+    }
 
     partial void OnSelectedAlarmChanged(AlarmDto? value)
     {

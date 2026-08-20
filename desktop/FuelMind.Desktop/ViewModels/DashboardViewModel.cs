@@ -53,6 +53,9 @@ public sealed partial class DashboardViewModel : ObservableObject
     public bool HasTanks => _liveDataStore.Tanks.Count > 0;
     public bool HasPumps => _liveDataStore.Pumps.Count > 0;
     public string ConnectionDisplay => _liveDataStore.ConnectionState.ToString();
+    public string ConnectionStatusLabel => _liveDataStore.ConnectionState == LiveConnectionState.Connected
+        ? "CANLI"
+        : "BAĞLANTI";
     public string AverageTankFill => _liveDataStore.Tanks.Count == 0
         ? "Veri yok"
         : $"%{_liveDataStore.Tanks.Where(t => t.CapacityLiters > 0).Select(t => t.MeasuredLevelLiters / t.CapacityLiters * 100m).DefaultIfEmpty().Average():N0}";
@@ -136,6 +139,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         OnPropertyChanged(nameof(HasPumps));
         OnPropertyChanged(nameof(AverageTankFill));
         OnPropertyChanged(nameof(ConnectionDisplay));
+        OnPropertyChanged(nameof(ConnectionStatusLabel));
     }
 
     private static string RiskLevelText(string? value) => value?.ToUpperInvariant() switch
