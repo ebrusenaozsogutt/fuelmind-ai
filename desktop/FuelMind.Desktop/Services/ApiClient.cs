@@ -78,11 +78,39 @@ public sealed class ApiClient
         await EnsureSuccessAsync(response, cancellationToken);
     }
 
-    public async Task<byte[]> DownloadAsync(string relativePath, CancellationToken cancellationToken = default)
+    public async Task<byte[]> DownloadAsync(
+        string relativePath,
+        CancellationToken cancellationToken = default,
+        string? expectedMediaType = null,
+        bool requirePdfSignature = false)
     {
-        using var response = await SendRequestAsync(HttpMethod.Get, relativePath, content: null, cancellationToken);
-        await EnsureSuccessAsync(response, cancellationToken);
-        return await response.Content.ReadAsByteArrayAsync(cancellationToken);
+        using var response = await SendRequestAsync(HttpMethod.Get, relativePath, content: null, cancellationToken).ConfigureAwait(false);
+        await EnsureSuccessAsync(response, cancellationToken).ConfigureAwait(false);
+
+        if (response.StatusCode != HttpStatusCode.OK)
+            throw new ApiException(response.StatusCode, "INVALID_DOWNLOAD_RESPONSE", "Dosya indirme isteği beklenen HTTP 200 yanıtını döndürmedi.");
+
+        var mediaType = response.Content.Headers.ContentType?.MediaType;
+        if (!string.IsNullOrWhiteSpace(expectedMediaType) &&
+            !string.Equals(mediaType, expectedMediaType, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ApiException(
+                response.StatusCode,
+                "INVALID_DOWNLOAD_RESPONSE",
+                $"Sunucu beklenen {expectedMediaType} dosyası yerine geçersiz bir yanıt döndürdü.");
+        }
+
+        var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+        if (bytes.Length == 0)
+            throw new ApiException(response.StatusCode, "EMPTY_DOWNLOAD_RESPONSE", "Sunucu boş bir dosya döndürdü.");
+
+        if (requirePdfSignature &&
+            (bytes.Length < 5 || bytes[0] != (byte)'%' || bytes[1] != (byte)'P' || bytes[2] != (byte)'D' || bytes[3] != (byte)'F' || bytes[4] != (byte)'-'))
+        {
+            throw new ApiException(response.StatusCode, "INVALID_PDF_RESPONSE", "Sunucu geçerli bir PDF dosyası döndürmedi.");
+        }
+
+        return bytes;
     }
 
     private async Task<T> SendAsync<T>(
@@ -91,11 +119,11 @@ public sealed class ApiClient
         HttpContent? content,
         CancellationToken cancellationToken)
     {
-        using var response = await SendRequestAsync(method, relativePath, content, cancellationToken);
-        await EnsureSuccessAsync(response, cancellationToken);
+        using var response = await SendRequestAsync(method, relativePath, content, cancellationToken).ConfigureAwait(false);
+        await EnsureSuccessAsync(response, cancellationToken).ConfigureAwait(false);
 
-        await using var responseStream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        var result = await JsonSerializer.DeserializeAsync<T>(responseStream, _jsonOptions, cancellationToken);
+        await using var responseStream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        var result = await JsonSerializer.DeserializeAsync<T>(responseStream, _jsonOptions, cancellationToken).ConfigureAwait(false);
         return result ?? throw new ApiException(
             response.StatusCode,
             "INVALID_RESPONSE",

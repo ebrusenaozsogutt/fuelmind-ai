@@ -114,6 +114,7 @@ def test_alarm_link_target_rules_and_resolution_lifecycle(fault_api):
     assert resolved.status_code == 200
     assert resolved.json()["status"] == "RESOLVED"
     assert resolved.json()["resolved_by"] is not None
+    assert resolved.json()["resolved_by_name"] == "Fault User"
     assert resolved.json()["resolution_note"] == "Cable reseated"
     assert resolved.json()["resolved_at"] is not None
     assert client.patch(f"/api/faults/{fault['id']}/resolve", json={"resolution_note": "Again"}).status_code == 400

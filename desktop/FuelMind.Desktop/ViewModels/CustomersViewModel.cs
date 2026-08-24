@@ -19,8 +19,8 @@ public sealed partial class CustomersViewModel(ICommercialService commercialServ
     public ObservableCollection<DriverVehicleAssignmentReadDto> Assignments { get; } = [];
 
     [ObservableProperty] private CustomerReadDto? _selectedCustomer;
-    [ObservableProperty] private FleetReadDto? _selectedFleet;
-    [ObservableProperty] private FleetGroupReadDto? _selectedFleetGroup;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(CanCreateFleetGroup))] private FleetReadDto? _selectedFleet;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(CanCreateVehicle))] private FleetGroupReadDto? _selectedFleetGroup;
     [ObservableProperty] private VehicleReadDto? _selectedVehicle;
     [ObservableProperty] private DriverReadDto? _selectedDriver;
     [ObservableProperty] private string _newCode = string.Empty;
@@ -37,11 +37,13 @@ public sealed partial class CustomersViewModel(ICommercialService commercialServ
     [ObservableProperty] private string _newFleetCode = string.Empty;
     [ObservableProperty] private string _newFleetName = string.Empty;
     [ObservableProperty] private string _newFleetDescription = string.Empty;
-    [ObservableProperty] private bool _isEditingFleet;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(FleetFormTitle))] private bool _isEditingFleet;
+    [ObservableProperty] private bool _isFleetFormOpen;
     [ObservableProperty] private string _newGroupCode = string.Empty;
     [ObservableProperty] private string _newGroupName = string.Empty;
     [ObservableProperty] private string _newGroupDescription = string.Empty;
-    [ObservableProperty] private bool _isEditingFleetGroup;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(FleetGroupFormTitle))] private bool _isEditingFleetGroup;
+    [ObservableProperty] private bool _isFleetGroupFormOpen;
     [ObservableProperty] private string _newPlate = string.Empty;
     [ObservableProperty] private string _newVehicleBrand = string.Empty;
     [ObservableProperty] private string _newVehicleModel = string.Empty;
@@ -68,10 +70,17 @@ public sealed partial class CustomersViewModel(ICommercialService commercialServ
     public bool CanCreateFleetGroup => IsAdmin && SelectedFleet is not null;
     public bool CanCreateVehicle => IsAdmin && SelectedFleetGroup is not null;
     public bool CanAssignDriver => IsAdmin && SelectedVehicle is not null && SelectedDriver is not null;
+    public string FleetFormTitle => IsEditingFleet ? "Filoyu Düzenle" : "Yeni Filo";
+    public string FleetGroupFormTitle => IsEditingFleetGroup ? "Grubu Düzenle" : "Yeni Grup";
 
     partial void OnSelectedCustomerChanged(CustomerReadDto? value) => _ = LoadCustomerChildrenAsync(value);
-    partial void OnSelectedFleetChanged(FleetReadDto? value) { OnPropertyChanged(nameof(CanCreateFleetGroup)); _ = LoadFleetGroupsAsync(value); }
-    partial void OnSelectedFleetGroupChanged(FleetGroupReadDto? value) { OnPropertyChanged(nameof(CanCreateVehicle)); _ = LoadVehiclesAsync(value); }
+    partial void OnSelectedFleetChanged(FleetReadDto? value)
+    {
+        SelectedFleetGroup = null;
+        ResetFleetGroupForm();
+        _ = LoadFleetGroupsAsync(value);
+    }
+    partial void OnSelectedFleetGroupChanged(FleetGroupReadDto? value) { _ = LoadVehiclesAsync(value); }
     partial void OnSelectedVehicleChanged(VehicleReadDto? value) { OnPropertyChanged(nameof(CanAssignDriver)); _ = LoadAssignmentsAsync(value); }
     partial void OnSelectedDriverChanged(DriverReadDto? value) { OnPropertyChanged(nameof(CanAssignDriver)); _ = LoadAssignmentsForDriverAsync(value); }
 
@@ -152,27 +161,44 @@ public sealed partial class CustomersViewModel(ICommercialService commercialServ
         });
     }
 
+    [RelayCommand] private void NewFleet() { ResetFleetForm(); IsFleetFormOpen = true; }
+    [RelayCommand] private void CancelFleetForm() => ResetFleetForm();
     [RelayCommand] private void EditFleet(FleetReadDto? fleet)
     {
         if (fleet is null) return;
-        SelectedFleet = fleet; IsEditingFleet = true; NewFleetCode = fleet.Code; NewFleetName = fleet.Name; NewFleetDescription = fleet.Description ?? string.Empty;
+        SelectedFleet = fleet; IsEditingFleet = true; IsFleetFormOpen = true; NewFleetCode = fleet.Code; NewFleetName = fleet.Name; NewFleetDescription = fleet.Description ?? string.Empty;
     }
 
     [RelayCommand] public async Task CreateFleetGroupAsync()
     {
-        if (SelectedFleet is null || !Require(NewGroupCode, "Grup kodu") || !Require(NewGroupName, "Grup adı")) return;
+        if (SelectedFleet is null) { ErrorMessage = "Önce bir filo seçin."; return; }
+        if (!Require(NewGroupCode, "Grup kodu") || !Require(NewGroupName, "Grup adı")) return;
         await ExecuteAsync(async () =>
         {
             var request = new FleetGroupSaveDto { FleetId = SelectedFleet.Id, Code = NewGroupCode, Name = NewGroupName, Description = Blank(NewGroupDescription), IsActive = true };
             var item = IsEditingFleetGroup && SelectedFleetGroup is not null ? await commercialService.UpdateFleetGroupAsync(SelectedFleetGroup.Id, request) : await commercialService.CreateFleetGroupAsync(request);
-            ReplaceOrAdd(FleetGroups, item); SelectedFleetGroup = item; ResetFleetGroupForm();
+            ReplaceOrAdd(FleetGroups, item);
+            if (SelectedFleet is { } fleet)
+            {
+                fleet.GroupCount = FleetGroups.Count;
+                var fleetIndex = Fleets.IndexOf(fleet);
+                if (fleetIndex >= 0) Fleets[fleetIndex] = fleet;
+            }
+            SelectedFleetGroup = item; ResetFleetGroupForm();
         });
     }
 
+    [RelayCommand] private void NewFleetGroup()
+    {
+        if (SelectedFleet is null) { ErrorMessage = "Önce bir filo seçin."; return; }
+        ResetFleetGroupForm();
+        IsFleetGroupFormOpen = true;
+    }
+    [RelayCommand] private void CancelFleetGroupForm() => ResetFleetGroupForm();
     [RelayCommand] private void EditFleetGroup(FleetGroupReadDto? group)
     {
         if (group is null) return;
-        SelectedFleetGroup = group; IsEditingFleetGroup = true; NewGroupCode = group.Code; NewGroupName = group.Name; NewGroupDescription = group.Description ?? string.Empty;
+        SelectedFleetGroup = group; IsEditingFleetGroup = true; IsFleetGroupFormOpen = true; NewGroupCode = group.Code; NewGroupName = group.Name; NewGroupDescription = group.Description ?? string.Empty;
     }
 
     [RelayCommand] public async Task CreateVehicleAsync()
@@ -234,10 +260,30 @@ public sealed partial class CustomersViewModel(ICommercialService commercialServ
     { if (!CanManage(fleet is not null)) return; await ExecuteAsync(async () => { await commercialService.UpdateFleetAsync(fleet!.Id, new FleetSaveDto { CustomerId = fleet.CustomerId, Code = fleet.Code, Name = fleet.Name, Description = fleet.Description, RequestStatus = fleet.RequestStatus, IsActive = fleet.IsActive }); await LoadCustomerChildrenAsync(SelectedCustomer); }); }
     [RelayCommand] public async Task DeactivateFleetAsync(FleetReadDto? fleet)
     { if (!CanManage(fleet is not null)) return; await ExecuteAsync(async () => { await commercialService.DeactivateFleetAsync(fleet!.Id); await LoadCustomerChildrenAsync(SelectedCustomer); }); }
+    [RelayCommand] private async Task ToggleFleetActiveAsync()
+    {
+        if (!CanManage(SelectedFleet is not null)) return;
+        var fleet = SelectedFleet!;
+        await ExecuteAsync(async () =>
+        {
+            var updated = await commercialService.UpdateFleetAsync(fleet.Id, new FleetSaveDto { CustomerId = fleet.CustomerId, Code = fleet.Code, Name = fleet.Name, Description = fleet.Description, RequestStatus = fleet.RequestStatus, IsActive = !fleet.IsActive });
+            await RefreshFleetsAsync(updated.Id);
+        });
+    }
     [RelayCommand] public async Task UpdateFleetGroupAsync(FleetGroupReadDto? group)
     { if (!CanManage(group is not null)) return; await ExecuteAsync(async () => { await commercialService.UpdateFleetGroupAsync(group!.Id, new FleetGroupSaveDto { FleetId = group.FleetId, Code = group.Code, Name = group.Name, Description = group.Description, IsActive = group.IsActive }); await LoadFleetGroupsAsync(SelectedFleet); }); }
     [RelayCommand] public async Task DeactivateFleetGroupAsync(FleetGroupReadDto? group)
     { if (!CanManage(group is not null)) return; await ExecuteAsync(async () => { await commercialService.DeactivateFleetGroupAsync(group!.Id); await LoadFleetGroupsAsync(SelectedFleet); }); }
+    [RelayCommand] private async Task ToggleFleetGroupActiveAsync()
+    {
+        if (!CanManage(SelectedFleetGroup is not null)) return;
+        var group = SelectedFleetGroup!;
+        await ExecuteAsync(async () =>
+        {
+            await commercialService.UpdateFleetGroupAsync(group.Id, new FleetGroupSaveDto { FleetId = group.FleetId, Code = group.Code, Name = group.Name, Description = group.Description, IsActive = !group.IsActive });
+            await LoadFleetGroupsAsync(SelectedFleet, group.Id);
+        });
+    }
     [RelayCommand] public async Task UpdateVehicleAsync(VehicleReadDto? vehicle)
     { if (!CanManage(vehicle is not null)) return; await ExecuteAsync(async () => { await commercialService.UpdateVehicleAsync(vehicle!.Id, new VehicleSaveDto { FleetGroupId = vehicle.FleetGroupId, Plate = vehicle.Plate, Brand = vehicle.Brand, Model = vehicle.Model, VehicleType = vehicle.VehicleType, IsActive = vehicle.IsActive }); await LoadVehiclesAsync(SelectedFleetGroup); }); }
     [RelayCommand] public async Task DeactivateVehicleAsync(VehicleReadDto? vehicle)
@@ -251,15 +297,44 @@ public sealed partial class CustomersViewModel(ICommercialService commercialServ
 
     private async Task LoadCustomerChildrenAsync(CustomerReadDto? customer)
     {
+        SelectedFleetGroup = null; SelectedFleet = null;
         AuthorizedPersons.Clear(); Fleets.Clear(); FleetGroups.Clear(); Vehicles.Clear(); Assignments.Clear();
         if (customer is null) return;
-        try { Replace(AuthorizedPersons, await commercialService.GetAuthorizedPersonsAsync(customer.Id)); Replace(Fleets, await commercialService.GetFleetsAsync(customer.Id)); SelectedFleet = Fleets.FirstOrDefault(); }
+        try
+        {
+            Replace(AuthorizedPersons, await commercialService.GetAuthorizedPersonsAsync(customer.Id));
+            var fleets = (await commercialService.GetFleetsAsync(customer.Id)).ToList();
+            await PopulateFleetGroupCountsAsync(fleets);
+            Replace(Fleets, fleets);
+            SelectedFleet = Fleets.FirstOrDefault();
+        }
         catch (Exception ex) { ErrorMessage = ToMessage(ex); }
     }
-    private async Task LoadFleetGroupsAsync(FleetReadDto? fleet)
+    private async Task RefreshFleetsAsync(int? selectedFleetId = null)
     {
+        if (SelectedCustomer is null) return;
+        var fleets = (await commercialService.GetFleetsAsync(SelectedCustomer.Id)).ToList();
+        await PopulateFleetGroupCountsAsync(fleets);
+        Replace(Fleets, fleets);
+        SelectedFleet = selectedFleetId is int id ? Fleets.FirstOrDefault(item => item.Id == id) : Fleets.FirstOrDefault();
+    }
+    private async Task PopulateFleetGroupCountsAsync(IEnumerable<FleetReadDto> fleets)
+    {
+        var fleetList = fleets.ToList();
+        var groupLists = await Task.WhenAll(fleetList.Select(fleet => commercialService.GetFleetGroupsAsync(fleet.Id)));
+        for (var index = 0; index < fleetList.Count; index++)
+            fleetList[index].GroupCount = groupLists[index].Count;
+    }
+    private async Task LoadFleetGroupsAsync(FleetReadDto? fleet, int? selectedGroupId = null)
+    {
+        SelectedFleetGroup = null;
         FleetGroups.Clear(); Vehicles.Clear(); Assignments.Clear(); if (fleet is null) return;
-        try { Replace(FleetGroups, await commercialService.GetFleetGroupsAsync(fleet.Id)); SelectedFleetGroup = FleetGroups.FirstOrDefault(); } catch (Exception ex) { ErrorMessage = ToMessage(ex); }
+        try
+        {
+            Replace(FleetGroups, await commercialService.GetFleetGroupsAsync(fleet.Id));
+            SelectedFleetGroup = selectedGroupId is int id ? FleetGroups.FirstOrDefault(item => item.Id == id) : null;
+        }
+        catch (Exception ex) { ErrorMessage = ToMessage(ex); }
     }
     private async Task LoadVehiclesAsync(FleetGroupReadDto? group)
     {
@@ -292,8 +367,8 @@ public sealed partial class CustomersViewModel(ICommercialService commercialServ
     private CustomerAuthorizedPersonSaveDto AuthorizedPersonRequest(int customerId) => new() { CustomerId = customerId, FullName = NewAuthorizedPersonName, Title = Blank(NewAuthorizedPersonTitle), Phone = Blank(NewAuthorizedPersonPhone), Email = Blank(NewAuthorizedPersonEmail), IsPrimary = NewAuthorizedPersonIsPrimary, IsActive = true };
     private void ResetCustomerForm() { IsEditingCustomer = false; NewCode = NewName = NewCustomerSector = NewCustomerPhone = NewCustomerEmail = NewCustomerTaxNumber = NewCustomerTaxOffice = string.Empty; NewCustomerType = "COMPANY"; NewCustomerDiscountRate = 0; NewCustomerRequestStatus = "PENDING"; }
     private void ResetAuthorizedPersonForm() { IsEditingAuthorizedPerson = false; SelectedAuthorizedPersonId = 0; NewAuthorizedPersonName = NewAuthorizedPersonTitle = NewAuthorizedPersonPhone = NewAuthorizedPersonEmail = string.Empty; NewAuthorizedPersonIsPrimary = false; }
-    private void ResetFleetForm() { IsEditingFleet = false; NewFleetCode = NewFleetName = NewFleetDescription = string.Empty; }
-    private void ResetFleetGroupForm() { IsEditingFleetGroup = false; NewGroupCode = NewGroupName = NewGroupDescription = string.Empty; }
+    private void ResetFleetForm() { IsEditingFleet = false; IsFleetFormOpen = false; NewFleetCode = NewFleetName = NewFleetDescription = string.Empty; }
+    private void ResetFleetGroupForm() { IsEditingFleetGroup = false; IsFleetGroupFormOpen = false; NewGroupCode = NewGroupName = NewGroupDescription = string.Empty; }
     private void ResetVehicleForm() { IsEditingVehicle = false; NewPlate = NewVehicleBrand = NewVehicleModel = NewVehicleType = NewVehicleDescription = string.Empty; }
     private void ResetDriverForm() { IsEditingDriver = false; NewDriverName = NewDriverPhone = NewDriverReferenceCode = NewDriverLicenseNumber = string.Empty; }
     private bool Require(string value, string label) { if (!string.IsNullOrWhiteSpace(value)) return true; ErrorMessage = $"{label} zorunludur."; return false; }

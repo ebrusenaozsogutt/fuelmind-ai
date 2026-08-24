@@ -16,6 +16,13 @@ from app.utils.enums import FaultCode, FaultStatus, FaultTargetType, FaultType
 router = APIRouter(prefix="/faults", tags=["faults"])
 
 
+def _fault_response(fault: object) -> FaultRead:
+    """Return the existing fault contract with a user-friendly resolver name."""
+    response = FaultRead.model_validate(fault)
+    resolver = getattr(fault, "resolver_user", None)
+    return response.model_copy(update={"resolved_by_name": resolver.full_name if resolver else None})
+
+
 @router.get("", response_model=list[FaultRead])
 def list_faults(
     db: Annotated[Session, Depends(get_db)],
@@ -30,24 +37,25 @@ def list_faults(
     detected_from: datetime | None = None,
     detected_to: datetime | None = None,
 ) -> list[object]:
-    return FaultService(db).list(station_id=station_id, fault_type=fault_type, fault_code=fault_code, status=status_filter, target_type=target_type, target_id=target_id, alarm_id=alarm_id, detected_from=detected_from, detected_to=detected_to)
+    faults = FaultService(db).list(station_id=station_id, fault_type=fault_type, fault_code=fault_code, status=status_filter, target_type=target_type, target_id=target_id, alarm_id=alarm_id, detected_from=detected_from, detected_to=detected_to)
+    return [_fault_response(fault) for fault in faults]
 
 
 @router.post("", response_model=FaultRead, status_code=status.HTTP_201_CREATED)
 def create_fault(payload: FaultCreate, db: Annotated[Session, Depends(get_db)], user: Annotated[User, Depends(require_operator_or_admin)]) -> object:
-    return FaultService(db).create(payload, user_id=user.id, username=user.username)
+    return _fault_response(FaultService(db).create(payload, user_id=user.id, username=user.username))
 
 
 @router.get("/{fault_id}", response_model=FaultRead)
 def get_fault(fault_id: int, db: Annotated[Session, Depends(get_db)], _: Annotated[User, Depends(require_operator_or_admin)]) -> object:
-    return FaultService(db).get(fault_id)
+    return _fault_response(FaultService(db).get(fault_id))
 
 
 @router.patch("/{fault_id}/investigate", response_model=FaultRead)
 def investigate_fault(fault_id: int, db: Annotated[Session, Depends(get_db)], user: Annotated[User, Depends(require_operator_or_admin)]) -> object:
-    return FaultService(db).investigate(fault_id, user_id=user.id, username=user.username)
+    return _fault_response(FaultService(db).investigate(fault_id, user_id=user.id, username=user.username))
 
 
 @router.patch("/{fault_id}/resolve", response_model=FaultRead)
 def resolve_fault(fault_id: int, payload: FaultResolution, db: Annotated[Session, Depends(get_db)], user: Annotated[User, Depends(require_operator_or_admin)]) -> object:
-    return FaultService(db).resolve(fault_id, user_id=user.id, username=user.username, resolution_note=payload.resolution_note)
+    return _fault_response(FaultService(db).resolve(fault_id, user_id=user.id, username=user.username, resolution_note=payload.resolution_note))

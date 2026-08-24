@@ -4,7 +4,7 @@
              xmlns:controls="clr-namespace:FuelMind.Desktop.Controls"
              xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.WPF;assembly=LiveChartsCore.SkiaSharpView.WPF">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="28">
+        <StackPanel Margin="{DynamicResource PageContentMargin}">
             <Button HorizontalAlignment="Left" Command="{Binding BackCommand}" Content="← Pompalara Dön" />
             <TextBlock Margin="0,16,0,0" FontSize="26" Text="{Binding Pump.PumpId, StringFormat=Pompa ID: {0}, TargetNullValue=Canlı veri yok}" />
             <TextBlock Text="{Binding Pump.Status}" />

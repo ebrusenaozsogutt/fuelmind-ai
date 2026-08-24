@@ -6,14 +6,18 @@
         <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
         <StackPanel>
             <TextBlock Style="{StaticResource PageTitleStyle}" Text="Gelişmiş Raporlar" />
-            <TextBlock Margin="0,4,0,0" Foreground="{DynamicResource MutedForegroundBrush}" Text="Operasyon, ticari satış, bakım ve simülasyon kayıtlarını aynı filtre sözleşmesiyle inceleyin." />
+            <TextBlock Style="{StaticResource PageSubtitleStyle}" Text="Operasyon, ticari satış, bakım ve simülasyon kayıtlarını aynı filtre sözleşmesiyle inceleyin." />
             <Border Margin="0,10,0,0" Padding="8" Background="{DynamicResource DangerBrush}" CornerRadius="6">
                 <Border.Style><Style TargetType="Border"><Setter Property="Visibility" Value="Visible" /><Style.Triggers><DataTrigger Binding="{Binding ErrorMessage}" Value="{x:Null}"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></Border.Style>
                 <TextBlock Foreground="{DynamicResource AppForegroundBrush}" Text="{Binding ErrorMessage}" TextWrapping="Wrap" />
             </Border>
+            <Border Margin="0,8,0,0" Padding="8" Background="{DynamicResource SuccessBrush}" CornerRadius="6">
+                <Border.Style><Style TargetType="Border"><Setter Property="Visibility" Value="Visible" /><Style.Triggers><DataTrigger Binding="{Binding SuccessMessage}" Value="{x:Null}"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></Border.Style>
+                <TextBlock Foreground="{DynamicResource AppForegroundBrush}" Text="{Binding SuccessMessage}" TextWrapping="Wrap" />
+            </Border>
         </StackPanel>
 
-        <Border Grid.Row="1" Margin="0,16,0,12" Padding="12" Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1" CornerRadius="6">
+        <Border Grid.Row="1" Margin="0,16,0,12" IsEnabled="{Binding IsIdle}" Style="{StaticResource PremiumFilterBarStyle}">
             <Grid><Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
                 <WrapPanel>
                     <StackPanel Margin="0,0,12,6"><TextBlock Foreground="{DynamicResource MutedForegroundBrush}" Text="Rapor türü" /><ComboBox Margin="0,4,0,0" Width="205" Style="{StaticResource DarkComboBoxStyle}" ItemsSource="{Binding ReportTypes}" SelectedItem="{Binding SelectedReportType}" DisplayMemberPath="Name" /></StackPanel>
@@ -33,14 +37,14 @@
                     <StackPanel Margin="0,0,12,6" Visibility="{Binding ShowOperationsFilters, Converter={StaticResource BoolToVisibility}}"><TextBlock Foreground="{DynamicResource MutedForegroundBrush}" Text="Pompacı ID" /><TextBox Margin="0,4,0,0" Width="105" Text="{Binding AttendantId, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
                     <StackPanel Margin="0,0,12,6" Visibility="{Binding ShowOperationsFilters, Converter={StaticResource BoolToVisibility}}"><TextBlock Foreground="{DynamicResource MutedForegroundBrush}" Text="Vardiya ID" /><TextBox Margin="0,4,0,0" Width="105" Text="{Binding ShiftId, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
                 </WrapPanel>
-                <WrapPanel Grid.Row="2" Margin="0,8,0,0"><Button Style="{StaticResource SecondaryActionButtonStyle}" Command="{Binding RunCommand}" Content="Raporu Getir" /><Button Margin="8,0,0,0" Style="{StaticResource SecondaryActionButtonStyle}" Command="{Binding ExportPdfCommand}" Content="PDF İndir" /><Button Margin="8,0,0,0" Style="{StaticResource SecondaryActionButtonStyle}" Command="{Binding ExportCsvCommand}" Content="CSV İndir" /><Button Margin="8,0,0,0" Style="{StaticResource SecondaryActionButtonStyle}" Command="{Binding ClearFiltersCommand}" Content="Temizle" /></WrapPanel>
+                <WrapPanel Grid.Row="2" Margin="0,8,0,0"><Button Style="{StaticResource PrimaryButtonStyle}" Command="{Binding RunCommand}" Content="Raporu Getir" /><Button Margin="8,0,0,0" Style="{StaticResource SecondaryActionButtonStyle}" Command="{Binding ExportPdfCommand}" Content="PDF İndir" /><Button Margin="8,0,0,0" Style="{StaticResource SecondaryActionButtonStyle}" Command="{Binding ExportCsvCommand}" Content="CSV İndir" /><Button Margin="8,0,0,0" Style="{StaticResource GhostButtonStyle}" Command="{Binding ClearFiltersCommand}" Content="Temizle" /></WrapPanel>
             </Grid>
         </Border>
 
-        <Border Grid.Row="2" Padding="10" Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1" CornerRadius="6">
+        <Border Grid.Row="2" Style="{StaticResource PremiumTablePanelStyle}">
             <Grid><Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-                <TextBlock FontWeight="SemiBold" Text="{Binding SelectedReportType.Name, StringFormat={}{0} sonuçları, TargetNullValue=Rapor sonuçları}" />
-                <Grid Grid.Row="1" Margin="0,10,0,0"><DataGrid x:Name="ReportGrid" ItemsSource="{Binding Rows}" AutoGenerateColumns="False" IsReadOnly="True" /><TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource MutedForegroundBrush}" Text="{Binding EmptyStateMessage}"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding IsEmpty}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></Grid>
+                <DockPanel LastChildFill="False"><TextBlock FontWeight="SemiBold" Text="{Binding SelectedReportType.Name, StringFormat={}{0} sonuçları, TargetNullValue=Rapor sonuçları}" /><TextBlock DockPanel.Dock="Right" Foreground="{DynamicResource AccentBrush}" FontWeight="SemiBold" Text="Rapor hazırlanıyor..."><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding IsLoading}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></DockPanel>
+                <Grid Grid.Row="1" Margin="0,10,0,0"><DataGrid x:Name="ReportGrid" ItemsSource="{Binding Rows}" AutoGenerateColumns="False" IsReadOnly="True" EnableRowVirtualization="True" EnableColumnVirtualization="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.CanContentScroll="True" /><TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource MutedForegroundBrush}" Text="{Binding EmptyStateMessage}"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding IsEmpty}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></Grid>
             </Grid>
         </Border>
     </Grid>

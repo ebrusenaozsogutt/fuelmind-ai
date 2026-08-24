@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using FuelMind.Desktop.Dtos.Reports;
@@ -23,12 +24,14 @@ public sealed partial class ReportsViewModel(IReportService reportService, IStat
             ["customer-sales"] = [new("customer", "Müşteri", 1.4), new("plate", "Plaka", 1), new("card", "Kart", 1), new("transaction_count", "İşlem", .8), new("total_liters", "Toplam Litre", 1), new("total_amount", "Toplam Tutar", 1)],
         };
 
-    public ObservableCollection<ReportRowDto> Rows { get; } = [];
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(IsEmpty))]
+    private IReadOnlyList<ReportRowDto> _rows = Array.Empty<ReportRowDto>();
     public ObservableCollection<ReportColumnDefinition> Columns { get; } = [];
     public ObservableCollection<StationDto> Stations { get; } = [];
     public IReadOnlyList<ReportTypeItem> ReportTypes { get; } = [new("end-of-day", "Gün Sonu"), new("sales", "Satış"), new("attendants", "Pompacı / Vardiya"), new("deliveries", "Tank Dolum"), new("tank-measurements", "Tank Ölçüm"), new("price-changes", "Ürün Fiyat Değişimi"), new("faults", "Arıza"), new("customer-sales", "Müşteri / Araç Satış")];
 
-    [ObservableProperty] private ReportTypeItem? _selectedReportType;
+    [ObservableProperty, NotifyCanExecuteChangedFor(nameof(RunCommand)), NotifyCanExecuteChangedFor(nameof(ExportPdfCommand)), NotifyCanExecuteChangedFor(nameof(ExportCsvCommand))]
+    private ReportTypeItem? _selectedReportType;
     [ObservableProperty] private StationDto? _selectedStation;
     [ObservableProperty] private DateTime? _dateFrom;
     [ObservableProperty] private DateTime? _dateTo;
@@ -42,10 +45,13 @@ public sealed partial class ReportsViewModel(IReportService reportService, IStat
     [ObservableProperty] private string? _plate;
     [ObservableProperty] private string? _attendantId;
     [ObservableProperty] private string? _shiftId;
-    [ObservableProperty] private bool _isLoading;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(IsIdle)), NotifyCanExecuteChangedFor(nameof(RunCommand)), NotifyCanExecuteChangedFor(nameof(ExportPdfCommand)), NotifyCanExecuteChangedFor(nameof(ExportCsvCommand))]
+    private bool _isLoading;
     [ObservableProperty] private string? _errorMessage;
+    [ObservableProperty] private string? _successMessage;
 
     public bool IsEmpty => !IsLoading && Rows.Count == 0 && string.IsNullOrEmpty(ErrorMessage);
+    public bool IsIdle => !IsLoading;
     public string EmptyStateMessage => SelectedReportType is null ? "Rapor türü seçin." : $"{SelectedReportType.Name} için seçili filtrelerde kayıt bulunamadı.";
     public bool ShowSalesFilters => SelectedReportType?.Key is "sales" or "end-of-day" or "attendants" or "customer-sales";
     public bool ShowEquipmentFilters => SelectedReportType?.Key is "sales" or "deliveries" or "tank-measurements";
@@ -62,22 +68,24 @@ public sealed partial class ReportsViewModel(IReportService reportService, IStat
         });
     }
 
-    [RelayCommand] private async Task RunAsync()
+    private bool CanExecuteReportAction() => !IsLoading && SelectedReportType is not null;
+
+    [RelayCommand(CanExecute = nameof(CanExecuteReportAction))] private async Task RunAsync()
     {
         if (SelectedReportType is null) return;
-        await Execute(async () => Replace(Rows, await reportService.GetAsync(SelectedReportType.Key, Query())));
+        var reportType = SelectedReportType.Key;
+        await Execute(async () => Rows = await reportService.GetAsync(reportType, Query()));
     }
 
-    [RelayCommand] private Task ExportPdfAsync() => ExportAsync("pdf");
-    [RelayCommand] private Task ExportCsvAsync() => ExportAsync("csv");
+    [RelayCommand(CanExecute = nameof(CanExecuteReportAction))] private Task ExportPdfAsync() => ExportAsync("pdf");
+    [RelayCommand(CanExecute = nameof(CanExecuteReportAction))] private Task ExportCsvAsync() => ExportAsync("csv");
     [RelayCommand] private void ClearFilters() => ResetFilters();
 
     partial void OnSelectedReportTypeChanged(ReportTypeItem? value)
     {
         ResetFilters();
         ConfigureColumns();
-        Rows.Clear();
-        OnPropertyChanged(nameof(IsEmpty));
+        Rows = Array.Empty<ReportRowDto>();
         OnPropertyChanged(nameof(EmptyStateMessage));
         OnPropertyChanged(nameof(ShowSalesFilters));
         OnPropertyChanged(nameof(ShowEquipmentFilters));
@@ -88,17 +96,32 @@ public sealed partial class ReportsViewModel(IReportService reportService, IStat
     private async Task ExportAsync(string format)
     {
         if (SelectedReportType is null) return;
+        var reportType = SelectedReportType.Key;
+        var dialog = new SaveFileDialog
+        {
+            Filter = format == "pdf" ? "PDF (*.pdf)|*.pdf" : "CSV (*.csv)|*.csv",
+            DefaultExt = $".{format}",
+            AddExtension = true,
+            FileName = $"fuelmind_{reportType}_{DateTime.Today:yyyy-MM-dd}.{format}",
+        };
+        if (dialog.ShowDialog() != true) return;
+
         await Execute(async () =>
         {
-            var bytes = await reportService.ExportAsync(SelectedReportType.Key, format, Query());
-            var dialog = new SaveFileDialog
+            var bytes = await reportService.ExportAsync(reportType, format, Query());
+            await System.IO.File.WriteAllBytesAsync(dialog.FileName, bytes);
+            if (!System.IO.File.Exists(dialog.FileName))
+                throw new InvalidOperationException("Dışa aktarılan dosya kaydedilemedi.");
+
+            if (string.Equals(format, "pdf", StringComparison.OrdinalIgnoreCase))
             {
-                Filter = format == "pdf" ? "PDF (*.pdf)|*.pdf" : "CSV (*.csv)|*.csv",
-                DefaultExt = $".{format}",
-                AddExtension = true,
-                FileName = $"fuelmind_{SelectedReportType.Key}_{DateTime.Today:yyyy-MM-dd}.{format}",
-            };
-            if (dialog.ShowDialog() == true) await System.IO.File.WriteAllBytesAsync(dialog.FileName, bytes);
+                await Task.Run(() => Process.Start(new ProcessStartInfo(dialog.FileName) { UseShellExecute = true }));
+                SuccessMessage = "PDF başarıyla oluşturuldu ve açıldı.";
+            }
+            else
+            {
+                SuccessMessage = "CSV başarıyla oluşturuldu.";
+            }
         });
     }
 
@@ -145,7 +168,7 @@ public sealed partial class ReportsViewModel(IReportService reportService, IStat
     private async Task Execute(Func<Task> action)
     {
         if (IsLoading) return;
-        IsLoading = true; ErrorMessage = null;
+        IsLoading = true; ErrorMessage = null; SuccessMessage = null;
         try { await action(); }
         catch (Exception ex) { ErrorMessage = ToMessage(ex); }
         finally { IsLoading = false; OnPropertyChanged(nameof(IsEmpty)); }
@@ -157,12 +180,18 @@ public sealed partial class ReportsViewModel(IReportService reportService, IStat
         var message = api?.Message ?? exception.Message;
         return api?.ErrorCode == "VALIDATION_ERROR" || message.Contains("Request validation failed", StringComparison.OrdinalIgnoreCase)
             ? "Rapor filtreleri doğrulanamadı. Tarih, saat ve ID alanlarını kontrol edin."
+            : api?.ErrorCode is "INVALID_DOWNLOAD_RESPONSE" or "EMPTY_DOWNLOAD_RESPONSE" or "INVALID_PDF_RESPONSE"
+                ? "Dışa aktarılan dosya doğrulanamadı. Lütfen tekrar deneyin."
             : message.Contains("cannot precede", StringComparison.OrdinalIgnoreCase)
                 ? "Başlangıç ve bitiş değerlerini kontrol edin."
                 : message;
     }
 
-    private static void Replace<T>(ObservableCollection<T> target, IEnumerable<T> source) { target.Clear(); foreach (var item in source) target.Add(item); }
+    private static void Replace<T>(ObservableCollection<T> target, IEnumerable<T> source)
+    {
+        target.Clear();
+        foreach (var item in source) target.Add(item);
+    }
 }
 
 public sealed record ReportTypeItem(string Key, string Name);

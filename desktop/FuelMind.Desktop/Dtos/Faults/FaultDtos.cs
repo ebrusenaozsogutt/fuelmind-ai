@@ -20,6 +20,7 @@ public sealed class FaultDto
     [JsonPropertyName("resolved_at")] public DateTimeOffset? ResolvedAt { get; init; }
     [JsonPropertyName("resolution_note")] public string? ResolutionNote { get; init; }
     [JsonPropertyName("resolved_by")] public int? ResolvedBy { get; init; }
+    [JsonPropertyName("resolved_by_name")] public string? ResolvedByName { get; init; }
 }
 
 public sealed class FaultCreateDto

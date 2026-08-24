@@ -8,7 +8,7 @@
             <DockPanel>
                 <StackPanel>
                     <TextBlock Style="{StaticResource PageTitleStyle}" Text="Arıza Yönetimi" />
-                    <TextBlock Foreground="{DynamicResource MutedForegroundBrush}" Text="Kalıcı cihaz arızalarını, bakım takibini ve çözüm kayıtlarını yönetin. Canlı uyarılar Alarm Merkezi'nde değerlendirilir." />
+                    <TextBlock Style="{StaticResource PageSubtitleStyle}" Text="Kalıcı cihaz arızalarını, bakım takibini ve çözüm kayıtlarını yönetin. Canlı uyarılar Alarm Merkezi'nde değerlendirilir." />
                 </StackPanel>
                 <Button DockPanel.Dock="Right" VerticalAlignment="Center" Style="{StaticResource SecondaryActionButtonStyle}" Command="{Binding RefreshCommand}" Content="Yenile" />
             </DockPanel>
@@ -19,7 +19,7 @@
             <TextBlock Margin="0,8,0,0" Foreground="{DynamicResource SuccessForegroundBrush}" Text="{Binding SuccessMessage}" TextWrapping="Wrap" />
         </StackPanel>
 
-        <Border Grid.Row="1" Margin="0,16,0,12" Padding="12" Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1" CornerRadius="6">
+        <Border Grid.Row="1" Margin="0,16,0,12" Style="{StaticResource PremiumFilterBarStyle}">
             <DockPanel LastChildFill="False">
                 <WrapPanel>
                     <StackPanel Margin="0,0,10,4"><TextBlock Foreground="{DynamicResource MutedForegroundBrush}" Text="İstasyon" /><ComboBox Margin="0,4,0,0" Width="150" Style="{StaticResource DarkComboBoxStyle}" ItemsSource="{Binding Stations}" SelectedItem="{Binding FilterStation}" DisplayMemberPath="DisplayName" /></StackPanel>
@@ -36,11 +36,11 @@
 
         <Grid Grid.Row="2">
             <Grid.ColumnDefinitions><ColumnDefinition Width="3.4*" MinWidth="620" /><ColumnDefinition Width="2*" MinWidth="360" /></Grid.ColumnDefinitions>
-            <Border Padding="10" Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1" CornerRadius="6">
+            <Border Style="{StaticResource PremiumTablePanelStyle}">
                 <Grid><Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
                     <StackPanel><TextBlock FontSize="17" FontWeight="SemiBold" Text="Arıza Kayıtları" /><TextBlock Margin="0,3,0,0" Foreground="{DynamicResource MutedForegroundBrush}" Text="Cihaz, durum ve tespit zamanına göre kalıcı arıza kayıtları." /></StackPanel>
                     <Grid Grid.Row="1" Margin="0,10,0,0">
-                        <DataGrid ItemsSource="{Binding Faults}" SelectedItem="{Binding SelectedFault}" AutoGenerateColumns="False" IsReadOnly="True"><DataGrid.Columns>
+                        <DataGrid ItemsSource="{Binding Faults}" SelectedItem="{Binding SelectedFault, Mode=TwoWay}" AutoGenerateColumns="False" IsReadOnly="True"><DataGrid.Columns>
                             <DataGridTextColumn Header="ID" Width="55" Binding="{Binding Id}" /><DataGridTextColumn Header="Arıza" Width="1.45*" Binding="{Binding Title}" /><DataGridTextColumn Header="Cihaz" Width="0.9*" Binding="{Binding TargetType}" /><DataGridTextColumn Header="Kod" Width="1.1*" Binding="{Binding FaultCode}" /><DataGridTextColumn Header="Durum" Width="0.85*" Binding="{Binding Status}" /><DataGridTextColumn Header="Tespit" Width="1.05*" Binding="{Binding DetectedAt, StringFormat={}{0:dd.MM.yyyy HH:mm}}" />
                         </DataGrid.Columns></DataGrid>
                         <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource MutedForegroundBrush}" Text="Filtreye uygun arıza kaydı yok."><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding IsEmpty}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
@@ -48,16 +48,17 @@
                 </Grid>
             </Border>
 
-            <Border Grid.Column="1" Margin="14,0,0,0" Padding="16" Background="{DynamicResource ControlBackgroundBrush}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1" CornerRadius="6">
+            <Border Grid.Column="1" Margin="14,0,0,0" Style="{StaticResource PremiumDetailPanelStyle}">
                 <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto"><StackPanel>
                     <TextBlock FontSize="19" FontWeight="SemiBold" Text="{Binding SelectedFault.Title, TargetNullValue=Arıza seçin}" TextWrapping="Wrap" /><TextBlock Margin="0,4,0,0" Foreground="{DynamicResource MutedForegroundBrush}" Text="Seçili arızanın yaşam döngüsü ve bakım kaydı" />
                     <WrapPanel Margin="0,14,0,0"><Border Padding="8,3" Background="{DynamicResource AccentSoftBrush}" CornerRadius="10"><TextBlock Text="{Binding SelectedFault.Status, TargetNullValue=—}" /></Border><TextBlock Margin="10,5,0,0" Foreground="{DynamicResource MutedForegroundBrush}" Text="{Binding SelectedFault.FaultCode, StringFormat=Kod: {0}, TargetNullValue=Kod: —}" /></WrapPanel>
                     <TextBlock Margin="0,18,0,0" FontWeight="SemiBold" Text="İlişkili cihaz" /><TextBlock Margin="0,4,0,0" Foreground="{DynamicResource MutedForegroundBrush}" Text="{Binding SelectedFault.TargetType, StringFormat=Tür: {0}, TargetNullValue=Tür: —}" /><TextBlock Foreground="{DynamicResource MutedForegroundBrush}" Text="{Binding SelectedFault.TargetId, StringFormat=Cihaz ID: {0}, TargetNullValue=Cihaz ID: —}" />
                     <TextBlock Margin="0,14,0,0" FontWeight="SemiBold" Text="Alarm ilişkisi" /><TextBlock Margin="0,4,0,0" Foreground="{DynamicResource MutedForegroundBrush}" Text="{Binding SelectedFault.AlarmId, StringFormat=İlişkili alarm: #{0}, TargetNullValue=İlişkili alarm kaydı yok}" />
-                    <TextBlock Margin="0,14,0,0" FontWeight="SemiBold" Text="Açıklama / neden" /><TextBlock Margin="0,4,0,0" Foreground="{DynamicResource MutedForegroundBrush}" Text="{Binding SelectedFault.Description, TargetNullValue=Açıklama belirtilmedi}" TextWrapping="Wrap" /><TextBlock Margin="0,4,0,0" Foreground="{DynamicResource MutedForegroundBrush}" Text="{Binding SelectedFault.Cause, StringFormat=Neden: {0}, TargetNullValue=Neden belirtilmedi}" TextWrapping="Wrap" />
-                    <TextBlock Margin="0,14,0,0" FontWeight="SemiBold" Text="Çözüm kaydı" /><TextBlock Margin="0,4,0,0" Foreground="{DynamicResource MutedForegroundBrush}" Text="{Binding SelectedFault.ResolvedBy, StringFormat=Çözen kullanıcı ID: {0}, TargetNullValue=Henüz çözülmedi}" /><TextBlock Foreground="{DynamicResource MutedForegroundBrush}" Text="{Binding SelectedFault.ResolvedAt, StringFormat=Çözüm zamanı: {0:dd.MM.yyyy HH:mm}, TargetNullValue=Henüz çözülmedi}" /><TextBlock Margin="0,4,0,0" Foreground="{DynamicResource MutedForegroundBrush}" Text="{Binding SelectedFault.ResolutionNote, StringFormat=Not: {0}, TargetNullValue=Çözüm notu yok}" TextWrapping="Wrap" />
-                    <TextBlock Margin="0,18,0,5" FontWeight="SemiBold" Text="Yeni çözüm notu" /><TextBox MinHeight="70" AcceptsReturn="True" TextWrapping="Wrap" Text="{Binding ResolutionNote, UpdateSourceTrigger=PropertyChanged}" />
-                    <WrapPanel Margin="0,12,0,0"><Button Style="{StaticResource SecondaryActionButtonStyle}" Command="{Binding InvestigateCommand}" IsEnabled="{Binding CanInvestigate}" Content="İncelemeye Al" /><Button Margin="8,0,0,0" Style="{StaticResource SecondaryActionButtonStyle}" Command="{Binding ResolveCommand}" IsEnabled="{Binding CanResolve}" Content="Çözüldü Olarak Kaydet" /></WrapPanel>
+                    <TextBlock Margin="0,14,0,0" FontWeight="SemiBold" Text="Açıklama" /><TextBlock Margin="0,4,0,0" Foreground="{DynamicResource MutedForegroundBrush}" Text="{Binding SelectedFault.Description, TargetNullValue=Açıklama belirtilmedi}" TextWrapping="Wrap" />
+                    <TextBlock Margin="0,10,0,0" FontWeight="SemiBold" Text="Neden" /><TextBlock Margin="0,4,0,0" Foreground="{DynamicResource MutedForegroundBrush}" Text="{Binding SelectedFault.Cause, TargetNullValue=Neden belirtilmedi}" TextWrapping="Wrap" />
+                    <TextBlock Margin="0,14,0,0" FontWeight="SemiBold" Text="Çözüm kaydı" /><TextBlock Margin="0,4,0,0" Foreground="{DynamicResource MutedForegroundBrush}" Text="{Binding SelectedFault.ResolvedByName, StringFormat=Çözen: {0}, TargetNullValue=Henüz çözülmedi}" /><TextBlock Foreground="{DynamicResource MutedForegroundBrush}" Text="{Binding SelectedFault.ResolvedAt, StringFormat=Çözüm zamanı: {0:dd.MM.yyyy HH:mm}, TargetNullValue=Henüz çözülmedi}" /><TextBlock Margin="0,4,0,0" Foreground="{DynamicResource MutedForegroundBrush}" Text="{Binding SelectedFault.ResolutionNote, StringFormat=Not: {0}, TargetNullValue=Çözüm notu yok}" TextWrapping="Wrap" />
+                    <TextBlock Margin="0,18,0,5" FontWeight="SemiBold" Text="Yeni çözüm notu" /><TextBox MinHeight="70" AcceptsReturn="True" TextWrapping="Wrap" IsEnabled="{Binding IsResolutionNoteEditable}" Text="{Binding NewResolutionNote, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    <WrapPanel Margin="0,12,0,0"><Button Style="{StaticResource PrimaryButtonStyle}" Command="{Binding InvestigateCommand}" Content="İncelemeye Al" /><Button Margin="8,0,0,0" Style="{StaticResource SecondaryActionButtonStyle}" Command="{Binding ResolveCommand}" Content="Çözüldü Olarak Kaydet" /></WrapPanel>
                 </StackPanel></ScrollViewer>
             </Border>
         </Grid>

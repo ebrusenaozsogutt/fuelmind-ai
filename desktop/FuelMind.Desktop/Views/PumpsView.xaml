@@ -4,7 +4,7 @@
              xmlns:controls="clr-namespace:FuelMind.Desktop.Controls"
              xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.WPF;assembly=LiveChartsCore.SkiaSharpView.WPF">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="28">
+        <StackPanel Margin="{DynamicResource PageContentMargin}">
             <TextBlock FontSize="28"
                        FontWeight="SemiBold"
                        Foreground="{DynamicResource AppForegroundBrush}"

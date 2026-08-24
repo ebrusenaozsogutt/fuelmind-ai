@@ -17,7 +17,7 @@ public sealed partial class FaultsViewModel(IFaultService service, IStationServi
     public IReadOnlyList<string> FaultCodes { get; } = ["ALL", "INTERFACE_ERROR", "PUMP_NOT_CONNECTED", "USC_INITIALIZATION_ERROR", "PORT_COMMUNICATION_ERROR", "PROBE_COMMUNICATION_ERROR", "SENSOR_ERROR", "NOZZLE_ERROR"];
     public IReadOnlyList<string> TargetTypes { get; } = ["ALL", "CONTROLLER", "PORT", "PUMP", "PROBE", "NOZZLE", "TANK", "SENSOR"];
 
-    [ObservableProperty] private FaultDto? _selectedFault;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(CanInvestigate)), NotifyPropertyChangedFor(nameof(CanResolve)), NotifyPropertyChangedFor(nameof(IsResolutionNoteEditable)), NotifyCanExecuteChangedFor(nameof(InvestigateCommand)), NotifyCanExecuteChangedFor(nameof(ResolveCommand))] private FaultDto? _selectedFault;
     [ObservableProperty] private string _status = "ALL";
     [ObservableProperty] private StationDto? _filterStation;
     [ObservableProperty] private string _filterFaultType = "ALL";
@@ -25,14 +25,15 @@ public sealed partial class FaultsViewModel(IFaultService service, IStationServi
     [ObservableProperty] private string _filterTargetType = "ALL";
     [ObservableProperty] private DateTime? _detectedFrom;
     [ObservableProperty] private DateTime? _detectedTo;
-    [ObservableProperty] private string? _resolutionNote;
-    [ObservableProperty] private bool _isLoading;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(CanResolve)), NotifyCanExecuteChangedFor(nameof(ResolveCommand))] private string _newResolutionNote = "";
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(CanInvestigate)), NotifyPropertyChangedFor(nameof(CanResolve)), NotifyPropertyChangedFor(nameof(IsResolutionNoteEditable)), NotifyCanExecuteChangedFor(nameof(InvestigateCommand)), NotifyCanExecuteChangedFor(nameof(ResolveCommand))] private bool _isLoading;
     [ObservableProperty] private string? _errorMessage;
     [ObservableProperty] private string? _successMessage;
 
     public bool IsEmpty => !IsLoading && Faults.Count == 0 && ErrorMessage is null;
-    public bool CanInvestigate => SelectedFault?.Status == "OPEN";
-    public bool CanResolve => SelectedFault?.Status is "OPEN" or "INVESTIGATING";
+    public bool CanInvestigate => !IsLoading && SelectedFault?.Status == "OPEN";
+    public bool CanResolve => !IsLoading && (SelectedFault?.Status is "OPEN" or "INVESTIGATING") && !string.IsNullOrWhiteSpace(NewResolutionNote);
+    public bool IsResolutionNoteEditable => !IsLoading && (SelectedFault?.Status is "OPEN" or "INVESTIGATING");
 
     public async Task LoadAsync() => await Run(async () => { Replace(Stations, await stations.GetActiveStationsAsync()); await LoadFaultsCoreAsync(); });
     [RelayCommand] private Task RefreshAsync() => LoadAsync();
@@ -54,7 +55,7 @@ public sealed partial class FaultsViewModel(IFaultService service, IStationServi
         });
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanInvestigateFault))]
     private async Task InvestigateAsync()
     {
         if (SelectedFault is not { } fault || !CanInvestigate) return;
@@ -66,14 +67,12 @@ public sealed partial class FaultsViewModel(IFaultService service, IStationServi
         });
     }
 
-    [RelayCommand] private async Task ResolveAsync()
+    [RelayCommand(CanExecute = nameof(CanResolveFault))] private async Task ResolveAsync()
     {
         if (SelectedFault is not { } fault || !CanResolve) return;
-        if (string.IsNullOrWhiteSpace(ResolutionNote)) { ErrorMessage = "Arızayı çözmek için çözüm notu zorunludur."; return; }
         await Run(async () =>
         {
-            var updated = await service.ResolveAsync(fault.Id, ResolutionNote.Trim());
-            ResolutionNote = updated.ResolutionNote;
+            var updated = await service.ResolveAsync(fault.Id, NewResolutionNote.Trim());
             await LoadFaultsCoreAsync(updated.Id, updated);
             SuccessMessage = $"Arıza #{updated.Id} çözüldü.";
         });
@@ -81,10 +80,11 @@ public sealed partial class FaultsViewModel(IFaultService service, IStationServi
 
     partial void OnSelectedFaultChanged(FaultDto? value)
     {
-        ResolutionNote = value?.ResolutionNote;
-        OnPropertyChanged(nameof(CanInvestigate));
-        OnPropertyChanged(nameof(CanResolve));
+        NewResolutionNote = "";
     }
+
+    private bool CanInvestigateFault() => CanInvestigate;
+    private bool CanResolveFault() => CanResolve;
 
     private async Task LoadFaultsCoreAsync(int? selectedId = null, FaultDto? selectedFallback = null)
     {

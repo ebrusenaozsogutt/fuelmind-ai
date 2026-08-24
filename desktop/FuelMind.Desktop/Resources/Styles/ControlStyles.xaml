@@ -14,7 +14,8 @@
         <Setter Property="Background" Value="{DynamicResource ControlBackgroundBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="Padding" Value="12,7" />
+        <Setter Property="Padding" Value="{DynamicResource ControlPadding}" />
+        <Setter Property="MinHeight" Value="34" />
         <Setter Property="HorizontalContentAlignment" Value="Center" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="Cursor" Value="Hand" />
@@ -26,7 +27,7 @@
                             Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="4">
+                            CornerRadius="{DynamicResource ControlCornerRadius}">
                         <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                           VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
                                           RecognizesAccessKey="True"
@@ -52,6 +53,30 @@
     </Style>
     <Style TargetType="Button" BasedOn="{StaticResource DarkButtonStyle}" />
 
+    <Style x:Key="PrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource DarkButtonStyle}">
+        <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="Foreground" Value="#06121D" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Effect" Value="{StaticResource AccentGlowEffect}" />
+    </Style>
+    <Style x:Key="SecondaryActionButtonStyle" TargetType="Button" BasedOn="{StaticResource DarkButtonStyle}">
+        <Setter Property="MinHeight" Value="32" />
+        <Setter Property="Padding" Value="10,5" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Background" Value="{DynamicResource ControlBackgroundBrush}" />
+    </Style>
+    <Style x:Key="CompactActionButtonStyle" TargetType="Button" BasedOn="{StaticResource SecondaryActionButtonStyle}">
+        <Setter Property="Height" Value="32" />
+        <Setter Property="Padding" Value="10,4" />
+    </Style>
+    <Style x:Key="DashboardCompactActionButton" TargetType="Button" BasedOn="{StaticResource CompactActionButtonStyle}" />
+    <Style x:Key="GhostButtonStyle" TargetType="Button" BasedOn="{StaticResource DarkButtonStyle}">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SubtleBorderBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource MutedForegroundBrush}" />
+    </Style>
+
     <Style x:Key="DarkTextBoxStyle" TargetType="TextBox">
         <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
         <Setter Property="Background" Value="{DynamicResource ControlBackgroundBrush}" />
@@ -59,7 +84,7 @@
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CaretBrush" Value="{DynamicResource AppForegroundBrush}" />
         <Setter Property="SelectionBrush" Value="{DynamicResource RowSelectedBrush}" />
-        <Setter Property="Padding" Value="8,5" />
+        <Setter Property="Padding" Value="10,7" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="TextBox">
@@ -68,7 +93,7 @@
                             Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="4">
+                            CornerRadius="{DynamicResource ControlCornerRadius}">
                         <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center" />
                     </Border>
                     <ControlTemplate.Triggers>
@@ -97,7 +122,7 @@
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CaretBrush" Value="{DynamicResource AppForegroundBrush}" />
         <Setter Property="SelectionBrush" Value="{DynamicResource RowSelectedBrush}" />
-        <Setter Property="Padding" Value="8,5" />
+        <Setter Property="Padding" Value="10,7" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="PasswordBox">
@@ -106,7 +131,7 @@
                             Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="4">
+                            CornerRadius="{DynamicResource ControlCornerRadius}">
                         <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center" />
                     </Border>
                     <ControlTemplate.Triggers>
@@ -143,7 +168,7 @@
                             Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="1,1,0,1"
-                            CornerRadius="4,0,0,4">
+                            CornerRadius="10,0,0,10">
                         <Grid>
                             <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center" />
                             <ContentControl x:Name="PART_Watermark"
@@ -257,7 +282,7 @@
                                     Background="{DynamicResource ControlBackgroundBrush}"
                                     BorderBrush="{DynamicResource ControlBorderBrush}"
                                     BorderThickness="1"
-                                    CornerRadius="4">
+                                    CornerRadius="{DynamicResource ControlCornerRadius}">
                                 <Calendar x:Name="PART_Calendar" Style="{StaticResource DarkCalendarStyle}" />
                             </Border>
                         </Popup>
@@ -283,7 +308,7 @@
                 Background="{Binding Background, RelativeSource={RelativeSource AncestorType=ComboBox}}"
                 BorderBrush="{Binding BorderBrush, RelativeSource={RelativeSource AncestorType=ComboBox}}"
                 BorderThickness="{Binding BorderThickness, RelativeSource={RelativeSource AncestorType=ComboBox}}"
-                CornerRadius="4">
+                CornerRadius="{DynamicResource ControlCornerRadius}">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -372,7 +397,7 @@
                                     Background="{DynamicResource ControlBackgroundBrush}"
                                     BorderBrush="{DynamicResource ControlBorderBrush}"
                                     BorderThickness="1"
-                                    CornerRadius="4">
+                                    CornerRadius="{DynamicResource ControlCornerRadius}">
                                 <ScrollViewer Margin="2" CanContentScroll="True">
                                     <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" />
                                 </ScrollViewer>
@@ -396,8 +421,11 @@
         <Setter Property="Background" Value="{DynamicResource TableHeaderBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" />
         <Setter Property="BorderThickness" Value="0,0,1,1" />
-        <Setter Property="Padding" Value="10,8" />
+        <Setter Property="Padding" Value="14,10" />
         <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
+        <Setter Property="TextOptions.TextRenderingMode" Value="ClearType" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
         <Setter Property="HorizontalContentAlignment" Value="Left" />
         <Setter Property="Template">
             <Setter.Value>
@@ -420,8 +448,11 @@
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" />
         <Setter Property="BorderThickness" Value="0,0,1,1" />
-        <Setter Property="Padding" Value="9,6" />
+        <Setter Property="Padding" Value="12,9" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
+        <Setter Property="TextOptions.TextRenderingMode" Value="ClearType" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
         <Style.Triggers>
             <Trigger Property="IsSelected" Value="True">
                 <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
@@ -436,9 +467,12 @@
         <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
         <Setter Property="TextElement.Foreground" Value="{DynamicResource AppForegroundBrush}" />
         <Setter Property="Background" Value="{DynamicResource CardBrush}" />
-        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SubtleBorderBrush}" />
         <Setter Property="BorderThickness" Value="3,0,0,0" />
-        <Setter Property="MinHeight" Value="38" />
+        <Setter Property="MinHeight" Value="44" />
+        <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
+        <Setter Property="TextOptions.TextRenderingMode" Value="ClearType" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
         <Style.Triggers>
             <Trigger Property="AlternationIndex" Value="1">
                 <Setter Property="Background" Value="{DynamicResource ControlBackgroundBrush}" />
@@ -481,6 +515,10 @@
         <Setter Property="HeadersVisibility" Value="Column" />
         <Setter Property="SelectionMode" Value="Single" />
         <Setter Property="SelectionUnit" Value="FullRow" />
+        <Setter Property="UseLayoutRounding" Value="True" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
+        <Setter Property="TextOptions.TextRenderingMode" Value="ClearType" />
         <Setter Property="RowStyle" Value="{StaticResource DarkDataGridRowStyle}" />
         <Setter Property="CellStyle" Value="{StaticResource DarkDataGridCellStyle}" />
         <Setter Property="ColumnHeaderStyle" Value="{StaticResource DarkDataGridColumnHeaderStyle}" />
@@ -528,6 +566,28 @@
         <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
         <Setter Property="Background" Value="{DynamicResource ControlBackgroundBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" />
+    </Style>
+    <Style x:Key="PremiumScrollViewerStyle" TargetType="ScrollViewer">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Padding" Value="0" />
+    </Style>
+    <Style TargetType="ScrollViewer" BasedOn="{StaticResource PremiumScrollViewerStyle}" />
+    <Style TargetType="ScrollBar">
+        <Setter Property="Width" Value="10" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource ControlBorderBrush}" />
+    </Style>
+    <Style TargetType="GroupBox">
+        <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
+        <Setter Property="Background" Value="{DynamicResource CardBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SubtleBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="16" />
+        <Setter Property="Margin" Value="0,0,0,12" />
+    </Style>
+    <Style TargetType="Separator">
+        <Setter Property="Background" Value="{DynamicResource SubtleBorderBrush}" />
+        <Setter Property="Margin" Value="0,14" />
     </Style>
     <Style x:Key="CommercialTabItemStyle" TargetType="TabItem"><Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}"/><Setter Property="Background" Value="{DynamicResource ControlBackgroundBrush}"/><Setter Property="Padding" Value="12,8"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TabItem"><Border x:Name="TabBorder" Background="{TemplateBinding Background}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1,1,1,0" Padding="{TemplateBinding Padding}" Margin="0,0,4,0" CornerRadius="4,4,0,0"><ContentPresenter ContentSource="Header" TextElement.Foreground="{TemplateBinding Foreground}"/></Border><ControlTemplate.Triggers><Trigger Property="IsSelected" Value="True"><Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource RowSelectedBrush}"/><Setter TargetName="TabBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/></Trigger><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource RowHoverBrush}"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>
     <Style x:Key="CommercialTabControlStyle" TargetType="TabControl"><Setter Property="Background" Value="{DynamicResource CardBrush}"/><Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}"/><Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="ItemContainerStyle" Value="{StaticResource CommercialTabItemStyle}"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TabControl"><Grid KeyboardNavigation.TabNavigation="Local"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><TabPanel Grid.Row="0" IsItemsHost="True" Background="{DynamicResource CardBrush}" Margin="8,8,8,0"/><Border Grid.Row="1" Margin="8" Padding="8" Background="{DynamicResource CardBrush}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4"><ContentPresenter ContentSource="SelectedContent" TextElement.Foreground="{DynamicResource AppForegroundBrush}"/></Border></Grid></ControlTemplate></Setter.Value></Setter></Style>

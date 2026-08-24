@@ -70,6 +70,7 @@ public sealed class FleetReadDto
     [JsonPropertyName("description")] public string? Description { get; init; }
     [JsonPropertyName("request_status")] public string? RequestStatus { get; init; }
     [JsonPropertyName("is_active")] public bool IsActive { get; init; }
+    [JsonIgnore] public int GroupCount { get; set; }
 }
 public sealed class FleetSaveDto
 {

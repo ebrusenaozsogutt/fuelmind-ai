@@ -16,25 +16,54 @@ public sealed class FaultsViewModelTests
         var viewModel = new FaultsViewModel(service, new FakeStationService()) { Status = "OPEN" };
 
         await viewModel.LoadAsync();
+        Assert.True(viewModel.InvestigateCommand.CanExecute(null));
+        Assert.False(viewModel.ResolveCommand.CanExecute(null));
+        Assert.True(viewModel.IsResolutionNoteEditable);
         await viewModel.InvestigateCommand.ExecuteAsync(null);
 
         Assert.Equal("INVESTIGATING", viewModel.SelectedFault?.Status);
         Assert.Empty(viewModel.Faults);
+        Assert.False(viewModel.InvestigateCommand.CanExecute(null));
         Assert.Contains("incelemeye alındı", viewModel.SuccessMessage);
 
-        viewModel.ResolutionNote = "Bağlantı ve kablo kontrol edildi.";
+        viewModel.NewResolutionNote = "Bağlantı ve kablo kontrol edildi.";
+        Assert.True(viewModel.ResolveCommand.CanExecute(null));
         await viewModel.ResolveCommand.ExecuteAsync(null);
 
         Assert.Equal("RESOLVED", viewModel.SelectedFault?.Status);
         Assert.Equal("Bağlantı ve kablo kontrol edildi.", viewModel.SelectedFault?.ResolutionNote);
+        Assert.Equal("Bağlantı ve kablo kontrol edildi.", service.LastResolutionNote);
         Assert.NotNull(viewModel.SelectedFault?.ResolvedAt);
         Assert.Equal(7, viewModel.SelectedFault?.ResolvedBy);
+        Assert.Equal("Fault User", viewModel.SelectedFault?.ResolvedByName);
+        Assert.False(viewModel.InvestigateCommand.CanExecute(null));
+        Assert.False(viewModel.ResolveCommand.CanExecute(null));
+        Assert.False(viewModel.IsResolutionNoteEditable);
         Assert.Contains("çözüldü", viewModel.SuccessMessage);
+    }
+
+    [Fact]
+    public async Task SelectedFaultSeparatesEditableResolutionNoteFromDetailFields()
+    {
+        var service = new FakeFaultService();
+        var viewModel = new FaultsViewModel(service, new FakeStationService());
+
+        await viewModel.LoadAsync();
+
+        Assert.Equal("Controlled acceptance check", viewModel.SelectedFault?.Cause);
+        Assert.Equal("Pompa bağlantısı doğrulaması", viewModel.SelectedFault?.Description);
+        Assert.Equal("", viewModel.NewResolutionNote);
+
+        viewModel.NewResolutionNote = "Yeni çözüm notu";
+
+        Assert.Equal("Yeni çözüm notu", viewModel.NewResolutionNote);
+        Assert.Null(viewModel.SelectedFault?.ResolutionNote);
     }
 
     private sealed class FakeFaultService : IFaultService
     {
         private FaultDto _fault = OpenFault();
+        public string? LastResolutionNote { get; private set; }
 
         public Task<IReadOnlyList<FaultDto>> ListAsync(string query, CancellationToken ct = default) =>
             Task.FromResult<IReadOnlyList<FaultDto>>(query.Contains("status=OPEN", StringComparison.Ordinal) && _fault.Status != "OPEN" ? [] : [_fault]);
@@ -50,6 +79,7 @@ public sealed class FaultsViewModelTests
 
         public Task<FaultDto> ResolveAsync(int id, string note, CancellationToken ct = default)
         {
+            LastResolutionNote = note;
             _fault = Copy("RESOLVED", note);
             return Task.FromResult(_fault);
         }
@@ -59,14 +89,17 @@ public sealed class FaultsViewModelTests
             Id = _fault.Id, StationId = _fault.StationId, TargetType = _fault.TargetType, TargetId = _fault.TargetId,
             FaultType = _fault.FaultType, FaultCode = _fault.FaultCode, Title = _fault.Title, Status = status,
             StartedAt = _fault.StartedAt, DetectedAt = _fault.DetectedAt,
+            Description = _fault.Description, Cause = _fault.Cause,
             ResolutionNote = note, ResolvedAt = status == "RESOLVED" ? DateTimeOffset.UtcNow : null,
             ResolvedBy = status == "RESOLVED" ? 7 : null,
+            ResolvedByName = status == "RESOLVED" ? "Fault User" : null,
         };
 
         private static FaultDto OpenFault() => new()
         {
             Id = 42, StationId = 1, TargetType = "PUMP", TargetId = 2, FaultType = "CONNECTION",
             FaultCode = "PUMP_NOT_CONNECTED", Title = "Pompa bağlantısı", Status = "OPEN",
+            Description = "Pompa bağlantısı doğrulaması", Cause = "Controlled acceptance check",
             StartedAt = DateTimeOffset.UtcNow.AddMinutes(-5), DetectedAt = DateTimeOffset.UtcNow,
         };
     }

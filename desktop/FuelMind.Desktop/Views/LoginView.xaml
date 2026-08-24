@@ -4,12 +4,11 @@
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
     </UserControl.Resources>
-    <Grid Margin="24">
+    <Grid Margin="24" Background="{DynamicResource AppBackgroundBrush}">
         <Border Width="420" Padding="36" HorizontalAlignment="Center" VerticalAlignment="Center"
-                Background="#1B2732" BorderBrush="#355063" BorderThickness="1" CornerRadius="8">
+                Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource SubtleBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource CardCornerRadius}" Effect="{StaticResource CardShadowEffect}">
             <StackPanel>
-                <TextBlock FontSize="30" FontWeight="SemiBold" Foreground="{DynamicResource AppForegroundBrush}"
-                           Text="FuelMind AI" />
+                <StackPanel Orientation="Horizontal"><Border Width="36" Height="36" Background="{DynamicResource AccentSoftBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1" CornerRadius="10"><TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" Text="FM" /></Border><TextBlock Margin="10,0,0,0" VerticalAlignment="Center" FontSize="30" FontWeight="SemiBold" Foreground="{DynamicResource AppForegroundBrush}" Text="FuelMind AI" /></StackPanel>
                 <TextBlock Margin="0,6,0,28" Foreground="{DynamicResource MutedForegroundBrush}"
                            Text="Operasyon yönetim platformuna giriş yapın." TextWrapping="Wrap" />
                 <TextBlock Foreground="{DynamicResource AppForegroundBrush}" Text="Kullanıcı adı" />
@@ -28,7 +27,7 @@
                            Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}" />
                 <Button Height="38" IsDefault="True" Click="OnLoginClick" Content="Giriş Yap">
                     <Button.Style>
-                        <Style TargetType="Button" BasedOn="{StaticResource DarkButtonStyle}">
+                        <Style TargetType="Button" BasedOn="{StaticResource PrimaryButtonStyle}">
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsBusy}" Value="True">
                                     <Setter Property="IsEnabled" Value="False" />

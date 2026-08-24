@@ -14,9 +14,18 @@ public sealed class ReportService(ApiClient apiClient) : IReportService
     public async Task<IReadOnlyList<ReportRowDto>> GetAsync(string reportType, string query, CancellationToken ct = default)
     {
         var json = await apiClient.GetAsync<JsonElement>($"reports/{reportType}{query}", ct);
-        if (json.ValueKind == JsonValueKind.Array) return json.EnumerateArray().Select(ReportRowDto.From).ToList();
-        return [ReportRowDto.From(json)];
+        return await Task.Run<IReadOnlyList<ReportRowDto>>(() =>
+            json.ValueKind == JsonValueKind.Array
+                ? json.EnumerateArray().Select(ReportRowDto.From).ToList()
+                : [ReportRowDto.From(json)], ct);
     }
-    public Task<byte[]> ExportAsync(string reportType, string format, string query, CancellationToken ct = default) =>
-        apiClient.DownloadAsync($"reports/{reportType}/export/{format}{query}", ct);
+    public Task<byte[]> ExportAsync(string reportType, string format, string query, CancellationToken ct = default)
+    {
+        var isPdf = string.Equals(format, "pdf", StringComparison.OrdinalIgnoreCase);
+        return apiClient.DownloadAsync(
+            $"reports/{reportType}/export/{format}{query}",
+            ct,
+            isPdf ? "application/pdf" : "text/csv",
+            requirePdfSignature: isPdf);
+    }
 }

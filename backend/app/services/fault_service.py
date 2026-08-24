@@ -3,7 +3,7 @@
 from datetime import datetime
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.exceptions import BusinessRuleError, NotFoundError
 from app.models.alarm import Alarm
@@ -47,7 +47,7 @@ class FaultService:
         detected_from: datetime | None = None,
         detected_to: datetime | None = None,
     ) -> list[Fault]:
-        statement = select(Fault)
+        statement = select(Fault).options(selectinload(Fault.resolver_user))
         for column, value in (
             (Fault.station_id, station_id), (Fault.fault_type, fault_type),
             (Fault.fault_code, fault_code), (Fault.status, status),

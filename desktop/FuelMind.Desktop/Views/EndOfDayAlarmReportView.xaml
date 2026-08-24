@@ -1,7 +1,7 @@
 <UserControl x:Class="FuelMind.Desktop.Views.EndOfDayAlarmReportView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-  <Grid Margin="28">
+  <Grid Margin="{DynamicResource PageContentMargin}">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="*"/>
