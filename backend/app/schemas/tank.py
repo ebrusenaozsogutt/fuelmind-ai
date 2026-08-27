@@ -1,11 +1,11 @@
 """Tank API schemas."""
 
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.utils.enums import SensorStatus
+from app.utils.enums import RecommendationPriority, RecommendationStatus, SensorStatus
 
 
 class TankBase(BaseModel):
@@ -100,3 +100,22 @@ class TankRead(TankBase):
 
     id: int
     created_at: datetime
+
+
+class OrderRecommendationRead(BaseModel):
+    """Stable API contract for an ORM-backed order recommendation."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    tank_id: int
+    station_id: int
+    current_stock_liters: Decimal
+    minimum_safe_stock_liters: Decimal
+    recommended_quantity: Decimal
+    recommended_order_date: date
+    recommended_delivery_date: date
+    critical_stock_date: date | None
+    confidence_score: Decimal
+    priority: RecommendationPriority
+    status: RecommendationStatus
+    explanation: str | None

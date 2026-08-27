@@ -171,6 +171,8 @@ class AlarmEngine:
             "recommended_checks_json": list(getattr(ai_result, "recommended_checks", ())),
             "data_quality_note": getattr(ai_result, "data_quality_note", None),
         }
+        if target_type not in {"TANK", "PUMP"}:
+            values.update(target_type=target_type, target_id=target_id)
         return [self.repository.create(values)]
 
     @staticmethod

@@ -444,15 +444,12 @@ class FuelCardAllowedFuelType(Base):
 
 
 class FuelCardUsageWindow(Base):
-    """A same-day time window during which a fuel card is usable."""
+    """A daily usage window; an end before start denotes an overnight window."""
 
     __tablename__ = "fuel_card_usage_windows"
     __table_args__ = (
         CheckConstraint(
             "day_of_week BETWEEN 0 AND 6", name="ck_fuel_card_usage_windows_day_range"
-        ),
-        CheckConstraint(
-            "end_time > start_time", name="ck_fuel_card_usage_windows_time_range"
         ),
     )
 

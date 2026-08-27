@@ -22,8 +22,10 @@ public sealed partial class AuthenticatedShellViewModel : ObservableObject
     private readonly ReportsViewModel _reports;
     private readonly FaultsViewModel _faults;
     private readonly AttendantsViewModel _attendants;
+    private readonly ForecastsViewModel _forecasts;
+    private readonly OrdersViewModel _orders;
 
-    public AuthenticatedShellViewModel(CurrentUserResponseDto currentUser, AuthService authService, LiveMonitoringViewModel liveMonitoringViewModel, FieldTopologyViewModel fieldTopologyViewModel, TanksViewModel tanksViewModel, PumpsViewModel pumpsViewModel, DashboardViewModel dashboardViewModel, SimulatorViewModel simulatorViewModel, TankDetailViewModel tankDetail, PumpDetailViewModel pumpDetail, AlarmsViewModel alarms, ModelManagementViewModel modelManagement, CustomersViewModel customers, FuelCardsViewModel fuelCards, FuelPricesViewModel fuelPrices, SalesHistoryViewModel salesHistory, EndOfDayAlarmReportViewModel endOfDayAlarmReport, ReportsViewModel reports, FaultsViewModel faults, AttendantsViewModel attendants, DetailNavigationService nav)
+    public AuthenticatedShellViewModel(CurrentUserResponseDto currentUser, AuthService authService, LiveMonitoringViewModel liveMonitoringViewModel, FieldTopologyViewModel fieldTopologyViewModel, TanksViewModel tanksViewModel, PumpsViewModel pumpsViewModel, DashboardViewModel dashboardViewModel, SimulatorViewModel simulatorViewModel, TankDetailViewModel tankDetail, PumpDetailViewModel pumpDetail, AlarmsViewModel alarms, ModelManagementViewModel modelManagement, CustomersViewModel customers, FuelCardsViewModel fuelCards, FuelPricesViewModel fuelPrices, SalesHistoryViewModel salesHistory, EndOfDayAlarmReportViewModel endOfDayAlarmReport, ReportsViewModel reports, FaultsViewModel faults, AttendantsViewModel attendants, ForecastsViewModel forecasts, OrdersViewModel orders, DetailNavigationService nav)
     {
         CurrentUser = currentUser;
         _authService = authService;
@@ -36,7 +38,7 @@ public sealed partial class AuthenticatedShellViewModel : ObservableObject
         _alarms = alarms;
         _modelManagement = modelManagement;
         _customers=customers;_fuelCards=fuelCards;_fuelPrices=fuelPrices;_salesHistory=salesHistory;_endOfDayAlarmReport=endOfDayAlarmReport;_reports=reports;_faults=faults;_attendants=attendants;
-        _tankDetail=tankDetail;_pumpDetail=pumpDetail; nav.TankRequested+=id=>{_tankDetail.Select(id);ShowPage(_tankDetail,"Tank Detail");};nav.PumpRequested+=id=>{_pumpDetail.Select(id);ShowPage(_pumpDetail,"Pump Detail");};nav.BackToTanksRequested+=()=>ShowPage(_tanksViewModel,"Tanklar");nav.BackToPumpsRequested+=()=>ShowPage(_pumpsViewModel,"Pompalar");
+        _tankDetail=tankDetail;_pumpDetail=pumpDetail;_forecasts=forecasts;_orders=orders; nav.TankRequested+=id=>{_tankDetail.Select(id);ShowPage(_tankDetail,"Tank Detail");};nav.PumpRequested+=id=>{_pumpDetail.Select(id);ShowPage(_pumpDetail,"Pump Detail");};nav.BackToTanksRequested+=()=>ShowPage(_tanksViewModel,"Tanklar");nav.BackToPumpsRequested+=()=>ShowPage(_pumpsViewModel,"Pompalar");
         nav.AlarmsRequested += filter => { _alarms.ApplyNavigationFilter(filter); ShowPage(_alarms, "Alarm Merkezi"); _ = _alarms.LoadAsync(); };
         nav.FaultRequested += id => { ShowPage(_faults, "Arıza Yönetimi"); _ = _faults.OpenFaultAsync(id); };
         nav.PumpsRequested += () => ShowPage(_pumpsViewModel, "Pompalar");
@@ -72,12 +74,12 @@ public sealed partial class AuthenticatedShellViewModel : ObservableObject
     [RelayCommand] private void ShowAlarms() { ShowPage(_alarms, "Alarm Merkezi"); _ = _alarms.LoadAsync(); }
     [RelayCommand] private void ShowFaults() { ShowPage(_faults, "Arıza Yönetimi"); _ = _faults.LoadAsync(); }
     [RelayCommand] private void ShowAttendants() { ShowPage(_attendants, "Pompacı & Vardiya"); _ = _attendants.LoadAsync(); }
-    [RelayCommand] private void ShowCustomers() { _salesHistory.StopAutoRefresh(); ShowPage(_customers, "Müşteriler"); _ = _customers.LoadAsync(); }
+    [RelayCommand] private void ShowCustomers() { RuntimeDiagnostics.Trace("Customers navigation clicked; CustomersViewModel resolve completed"); _salesHistory.StopAutoRefresh(); ShowPage(_customers, "Müşteriler"); RuntimeDiagnostics.Trace("Customers CurrentPage assigned"); _ = _customers.LoadAsync(); }
     [RelayCommand] private void ShowFuelCards() { _salesHistory.StopAutoRefresh(); ShowPage(_fuelCards, "Kartlar"); _ = _fuelCards.LoadAsync(); }
     [RelayCommand] private void ShowFuelPrices() { _salesHistory.StopAutoRefresh(); ShowPage(_fuelPrices, "Fiyat Yönetimi"); _ = _fuelPrices.LoadAsync(); }
-    [RelayCommand] private void ShowSales() { ShowPage(_salesHistory, "Satışlar"); _ = _salesHistory.LoadAsync(); _salesHistory.StartAutoRefresh(); }
-    [RelayCommand] private void ShowForecasts() => ShowPlaceholder("Tahminler");
-    [RelayCommand] private void ShowOrders() => ShowPlaceholder("Sipariş Önerileri");
+    [RelayCommand] private void ShowSales() { RuntimeDiagnostics.Trace("Sales navigation clicked; ViewModel resolved"); ShowPage(_salesHistory, "Satışlar"); RuntimeDiagnostics.Trace("Sales CurrentPage assigned"); _ = _salesHistory.LoadAsync(); _salesHistory.StartAutoRefresh(); }
+    [RelayCommand] private void ShowForecasts() { RuntimeDiagnostics.Trace("Forecasts navigation clicked; ViewModel resolved"); ShowPage(_forecasts, "Tahminler"); RuntimeDiagnostics.Trace("Forecasts CurrentPage assigned"); _ = _forecasts.LoadAsync(); }
+    [RelayCommand] private void ShowOrders() { RuntimeDiagnostics.Trace("Orders navigation clicked; ViewModel resolved"); ShowPage(_orders, "Sipariş Önerileri"); RuntimeDiagnostics.Trace("Orders CurrentPage assigned"); _ = _orders.LoadAsync(); }
     [RelayCommand] private void ShowSimulator() { ShowPage(_simulatorViewModel, "Simülatör"); _ = _simulatorViewModel.RefreshActiveRunAsync(); }
     [RelayCommand] private void ShowReports() { ShowPage(_reports, "Raporlar"); _ = _reports.LoadAsync(); }
     [RelayCommand] private void ShowModelManagement() { ShowPage(_modelManagement, "AI Model Yönetimi"); _ = _modelManagement.LoadModelsAsync(); }

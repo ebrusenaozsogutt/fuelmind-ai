@@ -332,3 +332,56 @@ def test_real_simulation_ticks_persist_selected_attendant_and_shift(field_simula
         )
         for sale in sales
     )
+
+
+def test_shared_tank_emptying_persists_only_the_positive_completed_sale(
+    field_simulation_db,
+) -> None:
+    """One tick cannot persist a zero-liter completion when two pumps share a tank."""
+
+    _, session, data = field_simulation_db
+    tank = data["tank"]
+    tank.current_level_liters = Decimal("3.000")
+    second_pump = Pump(
+        station_id=data["station"].id,
+        tank_id=tank.id,
+        code="P-2",
+        status=PumpStatus.IDLE,
+        nominal_flow_rate=Decimal("42"),
+        minimum_flow_rate=Decimal("10"),
+        maximum_motor_current=Decimal("20"),
+        maximum_pressure=Decimal("8"),
+    )
+    session.add(second_pump)
+    session.flush()
+    session.add(
+        Nozzle(
+            pump_id=second_pump.id,
+            fuel_type_id=data["tank"].fuel_type_id,
+            code="NZL-2",
+            nozzle_number=1,
+            status=NozzleStatus.AVAILABLE,
+            totalizer_liters=Decimal("200"),
+            is_active=True,
+        )
+    )
+    session.commit()
+
+    state, _ = _build_station_state(session, data["run"])
+    engine = _engine(data["run"].current_simulation_time, base_sale_probability=1)
+    result = engine.run_tick(state)
+    # This focused fixture intentionally omits the simulation_events table.
+    result.events = []
+
+    assert len(result.sale_results) == 2
+    assert len(result.completed_sales) == 1
+    assert result.completed_sales[0].dispensed_quantity_liters == pytest.approx(3.0)
+    assert all(sale.dispensed_quantity_liters > 0 for sale in result.completed_sales)
+    assert TickPersistence(session).persist(data["run"].id, result)
+
+    sales = list(session.scalars(select(Sale).order_by(Sale.id)))
+    assert len(sales) == 1
+    assert sales[0].quantity_liters == Decimal("3.000")
+    assert sales[0].end_totalizer_liters > sales[0].start_totalizer_liters
+    assert tank.current_level_liters == Decimal("0.000")
+    assert data["run"].status == SimulationStatus.RUNNING

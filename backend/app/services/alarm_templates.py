@@ -25,6 +25,10 @@ _TEMPLATES: Final[dict[str, Template]] = {
     "TANK_SALES_MISMATCH": ("Tank seviyesindeki düşüş, satışlarla açıklanan miktardan daha fazla.", "Satış kayıtlarını tank seviyesiyle karşılaştırın; olası sızıntı veya ölçüm hatasını araştırın.", _causes("Kayıt uyuşmazlığı", "Olası sızıntı", "Seviye ölçüm hatası")),
     "LOW_DATA_QUALITY": ("Etkilenen ekipmanın ölçümlerinde veri kalitesi sorunu algılandı.", "Sensör verisini, iletişimi ve son veri kalitesi işaretlerini kontrol edin.", _causes("İletişim kesintisi", "Eksik veri", "Fiziksel aralık ihlali")),
     "AI_ANOMALY": ("Öğrenilen normal çalışma davranışından anlamlı bir sapma algılandı.", "Yapay zekâ bulgularını ve önerilen kontrolleri inceleyin.", _causes("Olağandışı çalışma davranışı", "Ekipman performans değişimi", "Sensör verisi sapması")),
+    "PORT_COMMUNICATION_ERROR": ("İletişim portuyla saha cihazı arasındaki haberleşme kesildi.", "Port bağlantısını, kablolamayı ve controller iletişimini kontrol edin.", _causes("Kablo veya port bağlantısı", "Controller iletişim sorunu")),
+    "USC_INITIALIZATION_ERROR": ("USC/controller başlatılamadı; saha cihazlarıyla haberleşme kullanılamıyor.", "Controller başlatma kayıtlarını ve bağlantı ayarlarını kontrol edin.", _causes("Başlatma yapılandırması", "Controller iletişim sorunu")),
+    "PROBE_COMMUNICATION_ERROR": ("Tank probu ile haberleşme kesildi; son ölçüm güncel olmayabilir.", "Probe bağlantısını ve iletişim portunu kontrol edin.", _causes("Probe bağlantısı", "İletişim portu sorunu")),
+    "PUMP_NOT_CONNECTED": ("Pompa ile haberleşme kurulamadı.", "Pompa bağlantısını ve bağlı iletişim portunu kontrol edin.", _causes("Pompa bağlantısı", "İletişim portu sorunu")),
 }
 
 _TITLES: Final[dict[str, str]] = {
@@ -37,6 +41,10 @@ _TITLES: Final[dict[str, str]] = {
     "TANK_SALES_MISMATCH": "Tank ve Satış Uyuşmazlığı",
     "LOW_DATA_QUALITY": "Düşük Veri Kalitesi",
     "AI_ANOMALY": "Yapay Zekâ Erken Uyarısı",
+    "PORT_COMMUNICATION_ERROR": "Port Haberleşme Hatası",
+    "USC_INITIALIZATION_ERROR": "USC Başlatma Hatası",
+    "PROBE_COMMUNICATION_ERROR": "Probe Haberleşme Hatası",
+    "PUMP_NOT_CONNECTED": "Pompa Bağlantı Hatası",
 }
 
 

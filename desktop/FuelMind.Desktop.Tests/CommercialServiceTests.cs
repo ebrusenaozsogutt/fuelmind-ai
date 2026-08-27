@@ -13,6 +13,23 @@ namespace FuelMind.Desktop.Tests;
 public sealed class CommercialServiceTests
 {
     [Fact]
+    public async Task Customers_deserializes_the_backend_list_contract_with_optional_fields()
+    {
+        var handler = new RecordingHandler("""[{"id":7,"code":"C-007","name":"Örnek Lojistik","customer_type":"COMPANY","sector":null,"tax_number":null,"tax_office":null,"phone":null,"email":null,"address":null,"registration_date":"2026-08-25","discount_rate":2.50,"request_status":"APPROVED","is_active":true,"created_at":"2026-08-25T09:30:00Z","updated_at":"2026-08-25T09:30:00Z"}]""");
+        var service = CreateService(handler);
+
+        var customers = await service.GetCustomersAsync();
+
+        var customer = Assert.Single(customers);
+        Assert.Equal(7, customer.Id);
+        Assert.Equal("C-007", customer.Code);
+        Assert.Null(customer.Email);
+        Assert.Null(customer.TaxNumber);
+        Assert.Equal(new DateOnly(2026, 8, 25), customer.RegistrationDate);
+        Assert.Equal(2.50m, customer.DiscountRate);
+    }
+
+    [Fact]
     public async Task Sales_filter_uses_single_query_string_without_empty_parameters()
     {
         var handler = new RecordingHandler("[]");

@@ -81,6 +81,28 @@ _SALES_MINIMUM_WIDTHS = {
     "total_amount": 48.0, "customer": 75.0, "plate": 53.0, "card": 45.0,
     "payment_type": 46.0, "sale_status": 55.0,
 }
+_END_OF_DAY_SECTIONS = (
+    ("Yakıt Türüne Göre Dağılım", "by_fuel_type", "Yakıt Türü", "Yakıt Türü Tanımsız"),
+    ("Pompa Bazında Dağılım", "by_pump", "Pompa", "Pompa Tanımsız"),
+    ("Müşteri Bazında Dağılım", "by_customer", "Müşteri", "Müşteri Tanımsız"),
+    ("Ödeme Türüne Göre Dağılım", "by_payment_type", "Ödeme Türü", "Ödeme Türü Tanımsız"),
+)
+_PAYMENT_TYPE_LABELS = {
+    "CASH": "Nakit",
+    "CREDIT": "Kredi",
+    "PREPAID": "Ön Ödemeli",
+}
+_FILTER_LABELS = {
+    "station_id": "İstasyon ID",
+    "pump_id": "Pompa ID",
+    "nozzle_id": "Tabanca ID",
+    "fuel_type_id": "Yakıt Türü ID",
+    "customer_id": "Müşteri ID",
+    "vehicle_id": "Araç ID",
+    "plate": "Plaka",
+    "attendant_id": "Pompacı ID",
+    "shift_id": "Vardiya ID",
+}
 
 
 @dataclass(frozen=True)
@@ -132,6 +154,9 @@ class ReportExportService:
 
     def pdf(self, report_type: str, filters: ReportFilters) -> bytes:
         title, rows = self.dataset(report_type, filters)
+        if report_type == "end-of-day":
+            return self._end_of_day_pdf(title, rows, filters)
+
         buffer = BytesIO()
         font = self._font()
         styles = getSampleStyleSheet()
@@ -185,6 +210,165 @@ class ReportExportService:
         story.append(table)
         doc.build(story, onFirstPage=lambda canvas, document: self._footer(canvas, document, title, font), onLaterPages=lambda canvas, document: self._footer(canvas, document, title, font))
         return buffer.getvalue()
+
+    def _end_of_day_pdf(self, title: str, rows: list[dict[str, Any]], filters: ReportFilters) -> bytes:
+        """Render the end-of-day result as presentation-only, localized sections."""
+        buffer = BytesIO()
+        font = self._font()
+        styles = getSampleStyleSheet()
+        for style in styles.byName.values():
+            style.fontName = font
+        pagesize = portrait(A4)
+        left_margin = right_margin = 28.0
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=pagesize,
+            leftMargin=left_margin,
+            rightMargin=right_margin,
+            topMargin=24.0,
+            bottomMargin=26.0,
+        )
+        title_style = styles["Title"].clone("EndOfDayTitle", fontName=font, fontSize=15, leading=18, spaceAfter=2)
+        subtitle_style = styles["Heading2"].clone("EndOfDaySubtitle", fontName=font, fontSize=11, leading=13, spaceAfter=3)
+        section_style = styles["Heading2"].clone("EndOfDaySection", fontName=font, fontSize=10.5, leading=13, spaceBefore=10, spaceAfter=5, textColor=colors.HexColor("#18344F"))
+        meta_style = styles["Normal"].clone("EndOfDayMeta", fontName=font, fontSize=7.5, leading=9)
+        summary_label_style = styles["BodyText"].clone("EndOfDaySummaryLabel", fontName=font, fontSize=9, leading=11)
+        summary_value_style = styles["BodyText"].clone("EndOfDaySummaryValue", fontName=font, fontSize=10, leading=12, alignment=2)
+        header_style = styles["BodyText"].clone("EndOfDayHeader", fontName=font, fontSize=8, leading=9.5, alignment=1)
+        cell_style = styles["BodyText"].clone("EndOfDayCell", fontName=font, fontSize=8, leading=9.5)
+        numeric_cell_style = styles["BodyText"].clone("EndOfDayNumericCell", fontName=font, fontSize=8, leading=9.5, alignment=2)
+        summary, groups = self._end_of_day_data(rows)
+        story = [
+            Paragraph("FuelMind AI", title_style),
+            Paragraph(escape(title), subtitle_style),
+            Paragraph(f"Oluşturulma: {utc_now().strftime('%d.%m.%Y %H:%M')}", meta_style),
+            Paragraph(f"İstasyon: {escape(self._station_text(filters))}", meta_style),
+            Paragraph(f"Başlangıç Tarihi: {self._date_text(filters.date_from)}", meta_style),
+            Paragraph(f"Bitiş Tarihi: {self._date_text(filters.date_to)}", meta_style),
+            Paragraph(f"Saat Aralığı: {self._time_range_text(filters)}", meta_style),
+            Paragraph(f"Filtreler: {escape(self._end_of_day_filter_text(filters))}", meta_style),
+            Spacer(1, 8),
+            Paragraph("Gün Sonu Özeti", section_style),
+        ]
+        summary_data = [
+            [Paragraph("Toplam İşlem Sayısı", summary_label_style), Paragraph(self._format_transaction_count(summary.get("transaction_count")), summary_value_style)],
+            [Paragraph("Toplam Satış (Litre)", summary_label_style), Paragraph(self._format_liters(summary.get("total_liters")), summary_value_style)],
+            [Paragraph("Toplam Tutar", summary_label_style), Paragraph(self._format_amount(summary.get("total_amount")), summary_value_style)],
+        ]
+        summary_table = Table(summary_data, colWidths=(205.0, 334.0), hAlign="LEFT")
+        summary_table.setStyle(TableStyle([
+            ("FONTNAME", (0, 0), (-1, -1), font),
+            ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#EEF4F9")),
+            ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#DCE6F1")),
+            ("TEXTCOLOR", (0, 0), (-1, -1), colors.HexColor("#18344F")),
+            ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#AAB7C4")),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 7),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 7),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ]))
+        story.extend([summary_table, Spacer(1, 6)])
+        for section_title, key, first_column, empty_label in _END_OF_DAY_SECTIONS:
+            story.append(Paragraph(section_title, section_style))
+            story.append(self._end_of_day_section_table(groups.get(key, []), first_column, empty_label, key == "by_payment_type", header_style, cell_style, numeric_cell_style, font))
+            story.append(Spacer(1, 4))
+        doc.build(story, onFirstPage=lambda canvas, document: self._footer(canvas, document, title, font), onLaterPages=lambda canvas, document: self._footer(canvas, document, title, font))
+        return buffer.getvalue()
+
+    @staticmethod
+    def _end_of_day_data(rows: list[dict[str, Any]]) -> tuple[dict[str, Any], dict[str, list[dict[str, Any]]]]:
+        summary = {row["section"]: row.get("value") for row in rows if "value" in row}
+        groups = {
+            key: [row for row in rows if row.get("section") == key]
+            for _, key, _, _ in _END_OF_DAY_SECTIONS
+        }
+        return summary, groups
+
+    def _end_of_day_section_table(self, rows: list[dict[str, Any]], first_column: str, empty_label: str, payment_labels: bool, header_style: Any, cell_style: Any, numeric_cell_style: Any, font: str) -> Table:
+        data: list[list[Any]] = [[
+            Paragraph(first_column, header_style),
+            Paragraph("İşlem Sayısı", header_style),
+            Paragraph("Satış (Litre)", header_style),
+            Paragraph("Tutar", header_style),
+        ]]
+        for row in rows:
+            label = self._breakdown_label(row.get("key"), empty_label)
+            if payment_labels:
+                label = _PAYMENT_TYPE_LABELS.get(label.upper(), label) if label != empty_label else label
+            data.append([
+                Paragraph(self._paragraph_text(label), cell_style),
+                Paragraph(self._format_transaction_count(row.get("transaction_count")), numeric_cell_style),
+                Paragraph(self._format_liters(row.get("total_liters")), numeric_cell_style),
+                Paragraph(self._format_amount(row.get("total_amount")), numeric_cell_style),
+            ])
+        if len(data) == 1:
+            data.append([Paragraph("Kayıt bulunamadı.", cell_style), "", "", ""])
+        table = Table(data, repeatRows=1, colWidths=(185.0, 88.0, 122.0, 144.0), hAlign="LEFT", splitByRow=1)
+        table.setStyle(TableStyle([
+            ("FONTNAME", (0, 0), (-1, -1), font),
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#DCE6F1")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#18344F")),
+            ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#AAB7C4")),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 4),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            ("TOPPADDING", (0, 0), (-1, 0), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, 0), 4),
+            ("TOPPADDING", (0, 1), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 1), (-1, -1), 3),
+        ]))
+        return table
+
+    @staticmethod
+    def _breakdown_label(value: Any, fallback: str) -> str:
+        label = ReportExportService._text(value).strip()
+        return label or fallback
+
+    @staticmethod
+    def _format_number(value: Any, precision: int) -> str:
+        if value is None:
+            return "-"
+        number = Decimal(str(value))
+        return f"{number:,.{precision}f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+    @classmethod
+    def _format_transaction_count(cls, value: Any) -> str:
+        return cls._format_number(value, 0)
+
+    @classmethod
+    def _format_liters(cls, value: Any) -> str:
+        return f"{cls._format_number(value, 3)} L"
+
+    @classmethod
+    def _format_amount(cls, value: Any) -> str:
+        return f"{cls._format_number(value, 2)} TL"
+
+    @staticmethod
+    def _station_text(filters: ReportFilters) -> str:
+        return "Tümü" if filters.station_id is None else f"İstasyon ID: {filters.station_id}"
+
+    @staticmethod
+    def _date_text(value: date | None) -> str:
+        return value.strftime("%d.%m.%Y") if value else "Belirtilmedi"
+
+    @staticmethod
+    def _time_range_text(filters: ReportFilters) -> str:
+        if not filters.time_from and not filters.time_to:
+            return "Tüm gün"
+        start = filters.time_from.strftime("%H:%M") if filters.time_from else "Başlangıç belirtilmedi"
+        end = filters.time_to.strftime("%H:%M") if filters.time_to else "Bitiş belirtilmedi"
+        return f"{start} - {end}"
+
+    @staticmethod
+    def _end_of_day_filter_text(filters: ReportFilters) -> str:
+        active = filters.model_dump(exclude_none=True)
+        additional = [
+            f"{_FILTER_LABELS[key]}: {value}"
+            for key, value in active.items()
+            if key in _FILTER_LABELS
+        ]
+        return "; ".join(additional) or "Yok"
 
     @staticmethod
     def _table_layout(report_type: str, columns: list[str]) -> PdfTableLayout:

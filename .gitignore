@@ -24,6 +24,9 @@ ENV/
 *.log
 logs/
 .pytest_cache/
+.test-temp/
+.codex-pytest-*/
+.pytest_tmp_*/
 .mypy_cache/
 .ruff_cache/
 .coverage
@@ -51,3 +54,6 @@ reports/*
 # .NET build outputs
 **/bin/
 **/obj/
+desktop/artifacts/
+publish/
+*_wpftmp.csproj

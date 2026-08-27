@@ -27,6 +27,7 @@ from app.services.live_anomaly_service import LiveAnomalyService
 from app.repositories.alarm_repository import AlarmRepository
 from app.utils.enums import AnomalyType
 from app.services.commercial_sale_service import CommercialSaleService
+from app.services.field_fault_scenario_service import FieldFaultScenarioService
 
 
 def _decimal(value: float) -> Decimal:
@@ -55,6 +56,7 @@ class TickPersistence:
         self._quality = DataQualityService()
         self._readings = SensorReadingRepository(db)
         self._alarms = AlarmEngine(AlarmRepository(db))
+        self._field_faults = FieldFaultScenarioService(db)
         self._alarms_available = (
             inspect(db.get_bind()).has_table("alarms") if hasattr(db, "get_bind") else False
         )
@@ -91,6 +93,12 @@ class TickPersistence:
             self.db.add_all(deliveries)
             self.db.add_all(events)
             result.created_alarms = self._evaluate_alarms(run, result, readings)
+            if result.active_scenarios:
+                result.created_alarms += self._field_faults.apply(
+                    result.active_scenarios, result.simulation_time
+                )
+            else:
+                self._field_faults.apply([], result.simulation_time)
             self._update_nozzle_totalizers(result.completed_sales)
             self._update_tank_levels(result)
             run.current_simulation_time = result.simulation_time
@@ -131,7 +139,12 @@ class TickPersistence:
                 for result, group in readings_by_result
                 for reading in self._probe_readings(run, result, group)
             ]
-            sales = [sale for result in results for sale in self._sales(run, result)]
+            batch_totalizers: dict[int, Decimal] = {}
+            sales = [
+                sale
+                for result in results
+                for sale in self._sales(run, result, totalizers=batch_totalizers)
+            ]
             deliveries = [
                 delivery for result in results for delivery in self._deliveries(run, result)
             ]
@@ -264,14 +277,25 @@ class TickPersistence:
         result.probe_observations = enriched_observations
         return readings
 
-    def _sales(self, run: SimulationRun, result: SimulationTickResult) -> list[Sale]:
+    def _sales(
+        self,
+        run: SimulationRun,
+        result: SimulationTickResult,
+        *,
+        totalizers: dict[int, Decimal] | None = None,
+    ) -> list[Sale]:
         final_levels = {item.tank_id: item.true_level_liters for item in result.tank_results}
         delivery_levels = {
             item.tank_id: item.level_before_liters for item in result.deliveries
         }
-        totalizers: dict[int, Decimal] = {}
+        totalizers = totalizers if totalizers is not None else {}
         sales: list[Sale] = []
         for completed in result.completed_sales:
+            quantity = _sale_quantity(completed.dispensed_quantity_liters)
+            if quantity <= 0:
+                raise ValueError(
+                    "Completed simulation sales must have a positive dispensed quantity."
+                )
             start_totalizer = None
             end_totalizer = None
             if completed.nozzle_id is not None:
@@ -284,9 +308,7 @@ class TickPersistence:
                         raise ValueError(f"Nozzle {nozzle_id} was not found.")
                     totalizers[nozzle_id] = Decimal(nozzle.totalizer_liters)
                 start_totalizer = totalizers[nozzle_id]
-                end_totalizer = start_totalizer + _sale_quantity(
-                    completed.dispensed_quantity_liters
-                )
+                end_totalizer = start_totalizer + quantity
                 totalizers[nozzle_id] = end_totalizer
             sales.append(
                 self._sale(

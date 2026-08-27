@@ -69,6 +69,11 @@ class Sale(Base):
             name="ck_sales_totalizer_order",
         ),
         CheckConstraint(
+            "start_totalizer_liters IS NULL OR end_totalizer_liters IS NULL "
+            "OR ABS((end_totalizer_liters - start_totalizer_liters) - quantity_liters) <= 0.001",
+            name="ck_sales_totalizer_quantity_matches",
+        ),
+        CheckConstraint(
             "discount_rate IS NULL OR discount_rate >= 0",
             name="ck_sales_discount_nonnegative",
         ),

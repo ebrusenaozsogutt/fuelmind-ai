@@ -232,8 +232,15 @@ class SalesGenerator:
 
         completed_sale = None
         if sale.is_completed or tank.available_liters < _EPSILON:
-            completed_sale = station_state.complete_sale(pump_id)
+            finished_sale = station_state.complete_sale(pump_id)
             pump.stop_dispensing()
+            # Multiple pumps may share one tank.  A preceding pump can empty it
+            # within this same tick, leaving a later active sale with no physical
+            # fuel to dispense.  End that in-memory attempt, but it is not a
+            # completed sale and must never reach the completed-sale persistence
+            # pipeline (which represents only positive physical deliveries).
+            if finished_sale.dispensed_quantity_liters > _EPSILON:
+                completed_sale = finished_sale
         return SaleAdvanceResult(
             pump_id=pump_id,
             sale_id=sale.sale_id,

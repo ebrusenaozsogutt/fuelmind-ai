@@ -8,6 +8,8 @@
         TextOptions.TextFormattingMode="Display" TextOptions.TextRenderingMode="ClearType"
         RenderOptions.ClearTypeHint="Enabled">
   <Window.Resources>
+    <DataTemplate DataType="{x:Type viewModels:ForecastsViewModel}"><views:ForecastsView/></DataTemplate>
+    <DataTemplate DataType="{x:Type viewModels:OrdersViewModel}"><views:OrdersView/></DataTemplate>
     <DataTemplate DataType="{x:Type viewModels:LoginViewModel}"><views:LoginView/></DataTemplate>
     <Style x:Key="SidebarDashboardStyle" TargetType="Button" BasedOn="{StaticResource SidebarButtonStyle}"><Style.Triggers><DataTrigger Binding="{Binding CurrentPageTitle}" Value="Dashboard"><Setter Property="Background" Value="{DynamicResource AccentSoftBrush}"/><Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/><Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}"/><Setter Property="FontWeight" Value="SemiBold"/></DataTrigger></Style.Triggers></Style>
     <Style x:Key="SidebarLiveStyle" TargetType="Button" BasedOn="{StaticResource SidebarButtonStyle}"><Style.Triggers><DataTrigger Binding="{Binding CurrentPageTitle}" Value="Canlı İzleme"><Setter Property="Background" Value="{DynamicResource AccentSoftBrush}"/><Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/><Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}"/><Setter Property="FontWeight" Value="SemiBold"/></DataTrigger></Style.Triggers></Style>

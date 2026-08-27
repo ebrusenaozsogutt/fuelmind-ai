@@ -9,9 +9,12 @@ from app.api.dependencies import require_admin, require_operator_or_admin
 from app.database import get_db
 from app.exceptions import BusinessRuleError
 from app.models.user import User
-from app.schemas.tank import TankCreate, TankRead, TankUpdate
+from app.schemas.tank import OrderRecommendationRead, TankCreate, TankRead, TankUpdate
+from app.schemas.reconciliation import TankReconciliationRead, TankReconciliationRequest
 from app.services.station_service import StationService
 from app.services.tank_service import TankService
+from app.services.order_planning_service import OrderPlanningService
+from app.services.tank_reconciliation_service import TankReconciliationService
 
 router = APIRouter(tags=["tanks"])
 
@@ -55,6 +58,57 @@ def get_tank(
     _: Annotated[User, Depends(require_operator_or_admin)],
 ) -> object:
     return TankService(db).get(tank_id)
+
+
+@router.post("/tanks/{tank_id}/reconciliation", response_model=TankReconciliationRead)
+def reconcile_tank(
+    tank_id: int,
+    payload: TankReconciliationRequest,
+    db: Annotated[Session, Depends(get_db)],
+    _: Annotated[User, Depends(require_operator_or_admin)],
+) -> TankReconciliationRead:
+    """Calculate a measured stock reconciliation and deduplicate any mismatch alarm."""
+
+    try:
+        result = TankReconciliationService(db).reconcile(
+            tank_id=tank_id,
+            period_start=payload.period_start,
+            period_end=payload.period_end,
+            opening_level_liters=payload.opening_level_liters,
+            actual_closing_level_liters=payload.actual_closing_level_liters,
+        )
+        db.commit()
+        return result
+    except Exception:
+        db.rollback()
+        raise
+
+@router.get("/tanks/{tank_id}/recommendation", response_model=OrderRecommendationRead)
+def get_recommendation(tank_id: int, db: Annotated[Session, Depends(get_db)], _: Annotated[User, Depends(require_operator_or_admin)]) -> object:
+    return _recommendation_read(db, OrderPlanningService(db).latest(tank_id))
+
+@router.post("/tanks/{tank_id}/recommendation/generate", response_model=OrderRecommendationRead)
+def generate_recommendation(tank_id: int, db: Annotated[Session, Depends(get_db)], _: Annotated[User, Depends(require_admin)]) -> object:
+    return _recommendation_read(db, OrderPlanningService(db).generate(tank_id))
+
+
+def _recommendation_read(db: Session, recommendation: object) -> dict[str, object]:
+    """Return recommendation and its tank stock from the same authoritative record."""
+    tank = TankService(db).get(recommendation.tank_id)
+    return {
+        "tank_id": recommendation.tank_id,
+        "station_id": recommendation.station_id,
+        "current_stock_liters": tank.current_level_liters,
+        "minimum_safe_stock_liters": tank.minimum_safe_level,
+        "recommended_quantity": recommendation.recommended_quantity,
+        "recommended_order_date": recommendation.recommended_order_date,
+        "recommended_delivery_date": recommendation.recommended_delivery_date,
+        "critical_stock_date": recommendation.critical_stock_date,
+        "confidence_score": recommendation.confidence_score,
+        "priority": recommendation.priority,
+        "status": recommendation.status,
+        "explanation": recommendation.explanation,
+    }
 
 
 @router.put("/tanks/{tank_id}", response_model=TankRead)

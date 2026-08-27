@@ -70,3 +70,29 @@ class ModelVersionRead(BaseModel):
 
 class AnomalyModelTrainingRead(ModelVersionRead):
     training_diagnostics: dict[str, object]
+
+
+class DemandModelTrainRequest(BaseModel):
+    station_id: int | None = Field(default=None, gt=0)
+    start_date: date | None = None
+    end_date: date | None = None
+
+    @model_validator(mode="after")
+    def validate_range(self) -> "DemandModelTrainRequest":
+        if self.start_date is not None and self.end_date is not None and self.start_date > self.end_date:
+            raise ValueError("start_date cannot be after end_date.")
+        return self
+
+
+class DemandModelTrainingRead(BaseModel):
+    baseline_mae: float
+    baseline_rmse: float
+    baseline_mape: float | None
+    xgboost_mae: float
+    xgboost_rmse: float
+    xgboost_mape: float | None
+    winner: str
+    model_version: str
+    is_active: bool
+    training_row_count: int
+    test_row_count: int

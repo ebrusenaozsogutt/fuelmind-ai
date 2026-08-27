@@ -42,7 +42,15 @@ class FuelCardAuthorizationService:
   if not self.db.get(FuelType,r.fuel_type_id):return self._result(False,D.FUEL_TYPE_NOT_FOUND,"Fuel type not found.",card.id,base)
   if not self.db.scalar(select(FuelCardAllowedFuelType.id).where(FuelCardAllowedFuelType.fuel_card_id==card.id,FuelCardAllowedFuelType.fuel_type_id==r.fuel_type_id)):return self._result(False,D.FUEL_NOT_ALLOWED,"Fuel type is not allowed.",card.id,base)
   windows=list(self.db.scalars(select(FuelCardUsageWindow).where(FuelCardUsageWindow.fuel_card_id==card.id,FuelCardUsageWindow.is_active.is_(True))))
-  if windows and not any(w.day_of_week==now.weekday() and w.start_time<=now.timetz().replace(tzinfo=None)<w.end_time for w in windows):return self._result(False,D.TIME_NOT_ALLOWED,"Time is not allowed.",card.id,base)
+  if windows:
+   day_windows=[w for w in windows if w.day_of_week==now.weekday()]
+   previous_day=(now.weekday()-1)%7
+   overnight_windows=[w for w in windows if w.day_of_week==previous_day and w.end_time<w.start_time]
+   if not day_windows and not overnight_windows:return self._result(False,D.DAY_NOT_ALLOWED,"Day is not allowed.",card.id,base)
+   current_time=now.timetz().replace(tzinfo=None)
+   def _within(w):
+    return w.start_time<=current_time<w.end_time if w.end_time>w.start_time else current_time>=w.start_time or current_time<w.end_time
+   if not any(_within(w) for w in day_windows+overnight_windows):return self._result(False,D.TIME_NOT_ALLOWED,"Time is not allowed.",card.id,base)
   results=[]; failures=[]
   order={CardLimitType.PER_TRANSACTION:0,CardLimitType.DAILY:1,CardLimitType.WEEKLY:2,CardLimitType.MONTHLY:3,CardLimitType.CUSTOM:4}
   for limit in sorted(self.db.scalars(select(FuelCardLimit).where(FuelCardLimit.fuel_card_id==card.id,FuelCardLimit.is_active.is_(True))),key=lambda x:order[x.limit_type]):

@@ -21,9 +21,12 @@ from app.models.user import User
 from app.schemas.model_registry import (
     AnomalyModelTrainingRead,
     AnomalyModelTrainRequest,
+    DemandModelTrainingRead,
+    DemandModelTrainRequest,
     ModelVersionRead,
 )
 from app.services.anomaly_training_service import AnomalyTrainingService
+from app.services.demand_training_service import DemandTrainingService
 
 router = APIRouter(tags=["models"])
 
@@ -147,6 +150,30 @@ def train_anomaly_model(
         new_sensor_rows_since_training=_new_sensor_counts(
             db, {record.training_end_date}
         )[record.training_end_date],
+    )
+
+
+@router.post(
+    "/ml/train-demand-model",
+    response_model=DemandModelTrainingRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def train_demand_model(
+    payload: DemandModelTrainRequest,
+    db: Annotated[Session, Depends(get_db)],
+    _: Annotated[User, Depends(require_admin)],
+) -> DemandModelTrainingRead:
+    result = DemandTrainingService(db).train(
+        station_id=payload.station_id, start_at=payload.start_date, end_at=payload.end_date,
+    )
+    return DemandModelTrainingRead(
+        baseline_mae=result.baseline.mae, baseline_rmse=result.baseline.rmse,
+        baseline_mape=result.baseline.mape, xgboost_mae=result.xgboost.mae,
+        xgboost_rmse=result.xgboost.rmse, xgboost_mape=result.xgboost.mape,
+        winner=result.winner, model_version=result.registry_record.version,
+        is_active=result.registry_record.is_active,
+        training_row_count=result.xgboost.train_row_count,
+        test_row_count=result.xgboost.test_row_count,
     )
 
 

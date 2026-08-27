@@ -26,6 +26,21 @@ public partial class App : Application
         var services = new ServiceCollection();
         ConfigureServices(services);
         _serviceProvider = services.BuildServiceProvider();
+        DispatcherUnhandledException += (_, exceptionArgs) =>
+        {
+            RuntimeDiagnostics.Exception("DispatcherUnhandledException", exceptionArgs.Exception);
+            _serviceProvider.GetRequiredService<ILogger<App>>().LogCritical(exceptionArgs.Exception,
+                "Unhandled WPF dispatcher exception; application shutdown will continue.");
+        };
+        AppDomain.CurrentDomain.UnhandledException += (_, exceptionArgs) =>
+        {
+            if (exceptionArgs.ExceptionObject is Exception exception)
+                RuntimeDiagnostics.Exception("AppDomain.UnhandledException", exception);
+            else
+                RuntimeDiagnostics.Trace($"AppDomain.UnhandledException non-Exception object: {exceptionArgs.ExceptionObject}");
+        };
+        TaskScheduler.UnobservedTaskException += (_, exceptionArgs) =>
+            RuntimeDiagnostics.Exception("TaskScheduler.UnobservedTaskException", exceptionArgs.Exception);
         _ = _serviceProvider.GetRequiredService<IOptions<ApiSettings>>().Value;
         _ = _serviceProvider.GetRequiredService<IOptions<LiveChartsSettings>>().Value;
         _ = _serviceProvider.GetRequiredService<IOptions<ConnectionSettings>>().Value;
@@ -103,6 +118,8 @@ public partial class App : Application
         services.AddSingleton<IModelService>(provider => provider.GetRequiredService<ModelService>());
         services.AddSingleton<StationService>();
         services.AddSingleton<IStationService>(provider => provider.GetRequiredService<StationService>());
+        services.AddSingleton<IForecastService, ForecastService>();
+        services.AddSingleton<IOrderRecommendationService, OrderRecommendationService>();
         services.AddSingleton<CommercialService>();
         services.AddSingleton<ICommercialService>(provider => provider.GetRequiredService<CommercialService>());
         services.AddSingleton<IReportService, ReportService>();
@@ -127,6 +144,8 @@ public partial class App : Application
         services.AddSingleton<ReportsViewModel>();
         services.AddSingleton<FaultsViewModel>();
         services.AddSingleton<AttendantsViewModel>();
+        services.AddSingleton<ForecastsViewModel>();
+        services.AddSingleton<OrdersViewModel>();
         services.AddSingleton<MainViewModel>();
         services.AddSingleton<MainWindow>();
         services.AddTransient<ModelManagementView>();

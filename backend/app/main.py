@@ -19,6 +19,7 @@ from app.api.driver_vehicle_assignments import router as driver_vehicle_assignme
 from app.api.drivers import router as drivers_router
 from app.api.error_handlers import register_exception_handlers
 from app.api.fuel_types import router as fuel_types_router
+from app.api.forecasts import router as forecasts_router
 from app.api.faults import router as faults_router
 from app.api.fuel_cards import router as fuel_cards_router
 from app.api.fuel_prices import router as fuel_prices_router
@@ -88,6 +89,7 @@ app.include_router(vehicles_router, prefix=settings.API_PREFIX)
 app.include_router(drivers_router, prefix=settings.API_PREFIX)
 app.include_router(driver_vehicle_assignments_router, prefix=settings.API_PREFIX)
 app.include_router(fuel_types_router, prefix=settings.API_PREFIX)
+app.include_router(forecasts_router, prefix=settings.API_PREFIX)
 app.include_router(faults_router, prefix=settings.API_PREFIX)
 app.include_router(fuel_cards_router, prefix=settings.API_PREFIX)
 app.include_router(fuel_prices_router, prefix=settings.API_PREFIX)

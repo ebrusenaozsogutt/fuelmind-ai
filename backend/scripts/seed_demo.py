@@ -1,13 +1,14 @@
 """Idempotently seed canonical simulation equipment for station KONYA_TEST."""
 
-from datetime import date, time
+from datetime import date, time, timedelta
 from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
-from app.exceptions import BusinessRuleError, NotFoundError
+from app.seed import seed_demo_users
+from app.exceptions import BusinessRuleError
 from app.repositories.fuel_type_repository import FuelTypeRepository
 from app.repositories.communication_port_repository import CommunicationPortRepository
 from app.repositories.device_controller_repository import DeviceControllerRepository
@@ -25,9 +26,20 @@ from app.models.commercial import (
     FuelCard,
     FuelCardAllowedFuelType,
     FuelCardAllowedStation,
+    FuelCardLimit,
+    FuelCardUsageWindow,
     FuelPrice,
     Vehicle,
 )
+from app.models.delivery import Delivery
+from app.models.nozzle import Nozzle
+from app.models.pump import Pump
+from app.models.sale import Sale
+from app.schemas.delivery import DeliveryCreate
+from app.schemas.sale import CommercialSaleRequest
+from app.services.commercial_sale_service import CommercialSaleService
+from app.services.delivery_service import DeliveryService
+from app.services.forecast_generation_service import ForecastGenerationService
 from app.models.operations import Attendant, AttendantShiftAssignment, Shift
 from app.utils.enums import (
     ControllerStatus,
@@ -38,6 +50,7 @@ from app.utils.enums import (
     ProbeStatus,
     PumpStatus,
     CardStatus,
+    CardLimitType,
     CustomerType,
     DriverAssignmentStatus,
     PaymentType,
@@ -81,7 +94,16 @@ def seed_konya_simulation_demo(db: Session) -> dict[str, int]:
 
     station = StationRepository(db).get_by_code(_DEMO_STATION_CODE)
     if station is None:
-        raise NotFoundError("KONYA_TEST demo station was not found.")
+        station = StationRepository(db).create(
+            {
+                "code": _DEMO_STATION_CODE,
+                "name": "Konya Test İstasyonu",
+                "city": "Konya",
+                "district": "Selçuklu",
+                "address": "Yerel demo istasyonu",
+                "is_active": True,
+            }
+        )
     if not station.is_active:
         raise BusinessRuleError("KONYA_TEST demo station must be active.")
 
@@ -284,6 +306,7 @@ def _seed_commercial_demo(db: Session, station_id: int, fuel_by_code: dict[str, 
     prepaid_vehicle = _get_or_create_demo_vehicle(db, group.id, "42 DEMO 01")
     _get_or_create_demo_vehicle(db, group.id, "42 DEMO 02")  # intentionally cardless acceptance vehicle
     credit_vehicle = _get_or_create_demo_vehicle(db, group.id, "42 DEMO 03")
+    lpg_vehicle = _get_or_create_demo_vehicle(db, group.id, "42 DEMO 04")
     _get_or_create_assignment(db, driver.id, prepaid_vehicle.id)
     _get_or_create_assignment(db, credit_driver.id, credit_vehicle.id)
     prepaid = _get_or_create_demo_card(
@@ -300,11 +323,28 @@ def _seed_commercial_demo(db: Session, station_id: int, fuel_by_code: dict[str, 
         "UNIT-DEMO-002",
         PaymentType.CREDIT,
     )
+    lpg = _get_or_create_demo_card(
+        db,
+        lpg_vehicle.id,
+        "DEMO-CARD-03",
+        "UNIT-DEMO-003",
+        PaymentType.PREPAID,
+    )
     # Move an older idempotent seed's CREDIT demo card away from the acceptance vehicle.
     if credit.vehicle_id != credit_vehicle.id:
         credit.vehicle_id = credit_vehicle.id
-    _restore_demo_commercial_state(customer, fleet, group, prepaid_vehicle, credit_vehicle, prepaid, credit)
-    for card in (prepaid, credit):
+    _restore_demo_commercial_state(
+        customer, fleet, group, prepaid_vehicle, credit_vehicle, prepaid, credit
+    )
+    lpg_vehicle.is_active = True
+    lpg.status = CardStatus.ACTIVE
+    lpg.is_active = True
+    lpg.valid_from = date(2020, 1, 1)
+    lpg.valid_until = None
+    lpg.prepaid_balance = max(Decimal(lpg.prepaid_balance), Decimal("100000"))
+    lpg.credit_limit = Decimal("0")
+    lpg.credit_used = Decimal("0")
+    for card in (prepaid, credit, lpg):
         if db.scalar(
             select(FuelCardAllowedStation.id).where(
                 FuelCardAllowedStation.fuel_card_id == card.id,
@@ -320,6 +360,8 @@ def _seed_commercial_demo(db: Session, station_id: int, fuel_by_code: dict[str, 
                 )
             ) is None:
                 db.add(FuelCardAllowedFuelType(fuel_card_id=card.id, fuel_type_id=fuel.id))
+        _ensure_demo_card_limits(db, card)
+        _ensure_demo_card_usage_windows(db, card)
     for fuel in fuel_by_code.values():
         _ensure_current_demo_price(db, station_id, fuel.id)
 
@@ -352,17 +394,90 @@ def _ensure_current_demo_price(db: Session, station_id: int, fuel_type_id: int) 
         FuelPrice.fuel_type_id == fuel_type_id,
         FuelPrice.is_active.is_(True),
     )))
-    if any(price.effective_from <= now and (price.effective_until is None or price.effective_until > now) for price in prices):
-        return
-    future_starts = [price.effective_from for price in prices if price.effective_from > now]
-    db.add(FuelPrice(
-        station_id=station_id,
-        fuel_type_id=fuel_type_id,
-        unit_price=Decimal("55"),
-        effective_from=now,
-        effective_until=min(future_starts) if future_starts else None,
-        is_active=True,
-    ))
+    has_current = any(
+        price.effective_from <= now
+        and (price.effective_until is None or price.effective_until > now)
+        for price in prices
+    )
+    if not any(price.effective_from <= now - timedelta(days=30) for price in prices):
+        db.add(FuelPrice(
+            station_id=station_id,
+            fuel_type_id=fuel_type_id,
+            unit_price=Decimal("50"),
+            effective_from=now - timedelta(days=365),
+            effective_until=now - timedelta(days=30),
+            is_active=True,
+        ))
+    if not has_current:
+        future_starts = [price.effective_from for price in prices if price.effective_from > now]
+        db.add(FuelPrice(
+            station_id=station_id,
+            fuel_type_id=fuel_type_id,
+            unit_price=Decimal("55"),
+            effective_from=now,
+            effective_until=min(future_starts) if future_starts else None,
+            is_active=True,
+        ))
+
+
+def _ensure_demo_card_limits(db: Session, card: FuelCard) -> None:
+    """Give each active local card visible, non-blocking authorization limits."""
+
+    limits = (
+        (CardLimitType.PER_TRANSACTION, Decimal("100000")),
+        (CardLimitType.DAILY, Decimal("100000")),
+        (CardLimitType.MONTHLY, Decimal("100000")),
+    )
+    for limit_type, quantity in limits:
+        limit = db.scalar(
+            select(FuelCardLimit).where(
+                FuelCardLimit.fuel_card_id == card.id,
+                FuelCardLimit.limit_type == limit_type,
+                FuelCardLimit.is_active.is_(True),
+            )
+        )
+        if limit is None:
+            db.add(
+                FuelCardLimit(
+                    fuel_card_id=card.id,
+                    limit_type=limit_type,
+                    quantity_limit_liters=quantity,
+                    valid_from=date(2020, 1, 1),
+                    valid_until=None,
+                    is_active=True,
+                )
+            )
+        else:
+            limit.quantity_limit_liters = max(
+                Decimal(limit.quantity_limit_liters), quantity
+            )
+            limit.valid_from = date(2020, 1, 1)
+            limit.valid_until = None
+
+
+def _ensure_demo_card_usage_windows(db: Session, card: FuelCard) -> None:
+    """Keep historical demo sales authorized on every weekday and at every hour."""
+
+    for day_of_week in range(7):
+        exists = db.scalar(
+            select(FuelCardUsageWindow.id).where(
+                FuelCardUsageWindow.fuel_card_id == card.id,
+                FuelCardUsageWindow.day_of_week == day_of_week,
+                FuelCardUsageWindow.start_time == time(0, 0),
+                FuelCardUsageWindow.end_time == time(23, 59),
+                FuelCardUsageWindow.is_active.is_(True),
+            )
+        )
+        if exists is None:
+            db.add(
+                FuelCardUsageWindow(
+                    fuel_card_id=card.id,
+                    day_of_week=day_of_week,
+                    start_time=time(0, 0),
+                    end_time=time(23, 59),
+                    is_active=True,
+                )
+            )
 
 
 def _get_or_create_demo_vehicle(db: Session, group_id: int, plate: str) -> Vehicle:
@@ -588,11 +703,92 @@ def _get_or_create_port(
     )
 
 
+def _seed_demo_transactions(db: Session) -> None:
+    """Create service-backed historical sales, deliveries, and seven-day forecasts."""
+
+    station = StationRepository(db).get_by_code(_DEMO_STATION_CODE)
+    if station is None:
+        raise BusinessRuleError("Demo station was not created.")
+    now = utc_now().replace(hour=12, minute=0, second=0, microsecond=0)
+    cards = {
+        "DIESEL": "UNIT-DEMO-001",
+        "GASOLINE": "UNIT-DEMO-002",
+        "LPG": "UNIT-DEMO-003",
+    }
+    attendants = list(
+        db.scalars(
+            select(Attendant).where(Attendant.station_id == station.id).order_by(Attendant.id)
+        )
+    )
+    shifts = list(
+        db.scalars(select(Shift).where(Shift.station_id == station.id).order_by(Shift.id))
+    )
+    for fuel_code, unit_id in cards.items():
+        fuel = FuelTypeRepository(db).get_by_code(fuel_code)
+        if fuel is None:
+            raise BusinessRuleError(f"Demo fuel {fuel_code} was not created.")
+        nozzle = db.scalar(
+            select(Nozzle)
+            .join(Pump, Nozzle.pump_id == Pump.id)
+            .where(Pump.station_id == station.id, Nozzle.fuel_type_id == fuel.id)
+            .order_by(Nozzle.id)
+        )
+        if nozzle is None:
+            raise BusinessRuleError(f"Demo nozzle for {fuel_code} was not created.")
+        tank = nozzle.pump.tank
+        delivery_marker = f"DEMO-DELIVERY-{fuel_code}"
+        if db.scalar(select(Delivery.id).where(Delivery.simulation_delivery_id == delivery_marker)) is None:
+            delivery = DeliveryService(db).create(
+                DeliveryCreate(
+                    tank_id=tank.id,
+                    delivery_timestamp=now - timedelta(days=15),
+                    quantity_liters=Decimal("1000"),
+                    supplier_name="FuelMind Demo Tedarik",
+                )
+            )
+            delivery.simulation_delivery_id = delivery_marker
+            db.commit()
+        for day in range(14, 0, -1):
+            marker = f"DEMO-SALE-{fuel_code}-{day}"
+            if db.scalar(select(Sale.id).where(Sale.simulation_sale_id == marker)) is not None:
+                continue
+            result = CommercialSaleService(db).complete(
+                CommercialSaleRequest(
+                    unit_id=unit_id,
+                    nozzle_id=nozzle.id,
+                    quantity_liters=Decimal("25"),
+                    started_at=now - timedelta(days=day),
+                )
+            )
+            if not result.completed or result.sale is None:
+                raise BusinessRuleError(f"Demo sale {marker} was rejected: {result.message}")
+            sale = db.get(Sale, result.sale.id)
+            if sale is None:
+                raise BusinessRuleError("Completed demo sale could not be reloaded.")
+            sale.simulation_sale_id = marker
+            if attendants and shifts:
+                index = day % min(len(attendants), len(shifts))
+                sale.attendant_id = attendants[index].id
+                sale.shift_id = shifts[index].id
+            db.commit()
+    ForecastGenerationService(db).generate(station.id)
+
+
+def seed_final_demo(db: Session) -> dict[str, int]:
+    """Run the complete local demo fixture after the configured users are enabled."""
+
+    users = seed_demo_users(db)
+    summary = seed_konya_simulation_demo(db)
+    _seed_demo_transactions(db)
+    summary.update({"users_created": len(users), "sales": 42, "deliveries": 3, "forecasts": 21})
+    return summary
+
+
 def main() -> None:
-    """Run the KONYA_TEST demo seed against the configured database."""
+    """Run the complete KONYA_TEST local demo seed against the configured database."""
 
     with SessionLocal() as db:
-        summary = seed_konya_simulation_demo(db)
+        summary = seed_final_demo(db)
     print(f"Seeded KONYA_TEST demo: {summary}")
 
 

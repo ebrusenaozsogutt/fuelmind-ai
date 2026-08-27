@@ -12,7 +12,9 @@ from app.simulation import (
     StationSimulationState,
     TankState,
 )
-from app.utils.enums import PumpStatus
+from app.simulation.state import NozzleState
+from app.services.commercial_sale_service import CommercialSaleSelection
+from app.utils.enums import NozzleStatus, PumpStatus
 
 MOMENT = datetime(2026, 8, 3, 8, tzinfo=timezone.utc)
 
@@ -56,6 +58,44 @@ def _generator(seed: int = 42) -> SalesGenerator:
     return SalesGenerator(random_source=RandomSource(seed), demand_profile=DemandProfile())
 
 
+def _shared_tank_station(*, tank_level: float) -> StationSimulationState:
+    """Create two idle pumps which physically dispense from the same tank."""
+
+    station = StationSimulationState(station_id=1)
+    station.add_tank(
+        TankState(
+            tank_id=1,
+            station_id=1,
+            fuel_type_id=1,
+            code="T-1",
+            capacity_liters=1_000.0,
+            true_level_liters=tank_level,
+            measured_level_liters=tank_level,
+            minimum_safe_level=100.0,
+            critical_level=50.0,
+            temperature=20.0,
+            water_level=0.0,
+            sensor_status="OK",
+        )
+    )
+    for pump_id in (1, 2):
+        station.add_pump(
+            PumpState(
+                pump_id=pump_id,
+                station_id=1,
+                tank_id=1,
+                fuel_type_id=1,
+                code=f"P-{pump_id}",
+                status=PumpStatus.IDLE,
+                nominal_flow_rate=42.0,
+                minimum_flow_rate=10.0,
+                maximum_motor_current=20.0,
+                maximum_pressure=8.0,
+            )
+        )
+    return station
+
+
 def _start(generator: SalesGenerator, station: StationSimulationState, **overrides: object):
     values = {
         "station_state": station,
@@ -86,6 +126,39 @@ def test_non_start_leaves_state_unchanged() -> None:
     assert station.active_sales == {}
     assert station.get_pump(1).status == PumpStatus.IDLE
     assert station.get_tank(1).available_liters == 500.0
+
+
+@pytest.mark.parametrize(
+    "decision_code",
+    ["CARD_EXPIRED", "CARD_BLOCKED", "STATION_NOT_ALLOWED", "FUEL_NOT_ALLOWED"],
+)
+def test_configured_card_authorization_rejection_does_not_start_sale(
+    decision_code: str,
+) -> None:
+    """Dataset selection cannot bypass rejected card authorization decisions."""
+
+    def reject(**_: object) -> CommercialSaleSelection:
+        return CommercialSaleSelection(configured=True, decision_code=decision_code)
+
+    station = _station()
+    station.add_nozzle(
+        NozzleState(
+            nozzle_id=1,
+            pump_id=1,
+            fuel_type_id=1,
+            status=NozzleStatus.AVAILABLE,
+            is_active=True,
+        )
+    )
+    generator = SalesGenerator(
+        random_source=RandomSource(42),
+        demand_profile=DemandProfile(),
+        commercial_selector=reject,
+    )
+
+    assert _start(generator, station) is None
+    assert station.active_sales == {}
+    assert station.get_pump(1).status == PumpStatus.IDLE
 
 
 @pytest.mark.parametrize("probability", [-0.1, 1.1])
@@ -242,6 +315,48 @@ def test_exhausted_tank_ends_sale_without_negative_level() -> None:
     assert result.completed_sale is sale
     assert station.get_tank(1).available_liters == 0.0
     assert station.get_pump(1).status == PumpStatus.IDLE
+
+
+def test_empty_tank_ends_existing_sale_without_a_zero_quantity_completion() -> None:
+    station = _station(tank_level=3.0)
+    generator = _generator()
+    sale = _start(generator, station)
+    assert sale is not None
+    station.get_tank(1).true_level_liters = 0.0
+
+    result = generator.advance_active_sale(
+        station_state=station,
+        pump_id=1,
+        elapsed_seconds=5,
+        updated_at=MOMENT + timedelta(seconds=5),
+    )
+
+    assert result.dispensed_quantity_liters == 0.0
+    assert result.completed_sale is None
+    assert station.active_sales == {}
+    assert station.get_pump(1).status == PumpStatus.IDLE
+
+
+def test_shared_tank_second_pump_does_not_complete_a_zero_quantity_sale() -> None:
+    station = _shared_tank_station(tank_level=3.0)
+    generator = _generator()
+    first = _start(generator, station, pump_id=1)
+    second = _start(generator, station, pump_id=2)
+    assert first is not None and second is not None
+
+    results = generator.advance_all_sales(
+        station_state=station,
+        elapsed_seconds=5,
+        updated_at=MOMENT + timedelta(seconds=5),
+    )
+
+    assert [result.pump_id for result in results] == [1, 2]
+    assert results[0].completed_sale is first
+    assert results[0].completed_sale.dispensed_quantity_liters == pytest.approx(3.0)
+    assert results[1].dispensed_quantity_liters == 0.0
+    assert results[1].completed_sale is None
+    assert station.active_sales == {}
+    assert station.get_tank(1).available_liters == 0.0
 
 
 def test_advances_multiple_sales_using_snapshot_order() -> None:

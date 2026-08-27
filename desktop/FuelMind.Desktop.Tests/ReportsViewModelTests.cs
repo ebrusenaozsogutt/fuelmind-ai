@@ -34,7 +34,9 @@ public sealed class ReportsViewModelTests
         Assert.Contains("shift_id=7", service.LastQuery);
         Assert.Contains("plate=34%20ABC%2001", service.LastQuery);
         Assert.Contains("time_from=08%3A00", service.LastQuery);
-        Assert.Equal(["timestamp", "station", "pump", "nozzle", "attendant", "shift"], viewModel.Columns.Take(6).Select(item => item.Key));
+        Assert.Equal(["sale_id", "timestamp", "station", "pump", "nozzle", "attendant"], viewModel.Columns.Take(6).Select(item => item.Key));
+        Assert.Contains(viewModel.Columns, item => item.Key == "start_totalizer" && item.IsNumeric);
+        Assert.Contains(viewModel.Columns, item => item.Key == "payment_type");
         Assert.Equal("Pompacı Adı", viewModel.Rows.Single()["attendant"]);
         Assert.Equal("Akşam", viewModel.Rows.Single()["shift"]);
     }

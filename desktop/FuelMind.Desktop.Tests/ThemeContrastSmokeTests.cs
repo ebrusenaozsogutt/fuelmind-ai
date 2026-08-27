@@ -4,9 +4,15 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
+using System.Windows.Threading;
 using FuelMind.Desktop.Controls;
 using FuelMind.Desktop.Dtos.Alarms;
+using FuelMind.Desktop.Dtos.Auth;
+using FuelMind.Desktop.State;
+using FuelMind.Desktop.ViewModels;
 using FuelMind.Desktop.Views;
+using Microsoft.Extensions.DependencyInjection;
+using System.Reflection;
 using Xunit;
 
 namespace FuelMind.Desktop.Tests;
@@ -92,6 +98,10 @@ public sealed class ThemeContrastSmokeTests
                 FrameworkElement[] targetViews =
                 [
                     new ModelManagementView(),
+                    new CustomersView(),
+                    new SalesHistoryView(),
+                    new ForecastsView(),
+                    new OrdersView(),
                     new LoginView(),
                     new LiveMonitoringView(),
                     new AlarmsView(),
@@ -114,6 +124,9 @@ public sealed class ThemeContrastSmokeTests
                     view.UpdateLayout();
                     Assert.True(view.IsMeasureValid, $"{view.GetType().Name} could not be measured.");
                 }
+
+                AssertMainWindowNavigation<ForecastsViewModel, ForecastsView>(app);
+                AssertMainWindowNavigation<OrdersViewModel, OrdersView>(app);
 
                 var renderedTexts = FindVisualChildren<TextBlock>(alarmAiPanel)
                     .Select(item => item.Text)
@@ -152,6 +165,38 @@ public sealed class ThemeContrastSmokeTests
 
     private static void AssertStyleExists(ResourceDictionary resources, string key) =>
         Assert.IsType<Style>(resources[key]);
+
+    private static void AssertMainWindowNavigation<TViewModel, TView>(Application app)
+        where TView : FrameworkElement
+    {
+        var services = new ServiceCollection();
+        typeof(FuelMind.Desktop.App).GetMethod("ConfigureServices", BindingFlags.Static | BindingFlags.NonPublic)!
+            .Invoke(null, [services]);
+        using var provider = services.BuildServiceProvider();
+        var auth = provider.GetRequiredService<AuthState>();
+        auth.SetAuthentication(new TokenResponseDto { AccessToken = "test", TokenType = "bearer", ExpiresIn = 3600 });
+        auth.SetCurrentUser(new CurrentUserResponseDto { Id = 1, Username = "admin", FullName = "Admin", Role = "ADMIN", IsActive = true });
+
+        var window = provider.GetRequiredService<MainWindow>();
+        window.Show();
+        window.UpdateLayout();
+        var shell = Assert.IsType<AuthenticatedShellViewModel>(Assert.IsType<MainViewModel>(window.DataContext).CurrentViewModel);
+        var command = typeof(TViewModel) == typeof(ForecastsViewModel)
+            ? shell.ShowForecastsCommand
+            : shell.ShowOrdersCommand;
+        command.Execute(null);
+        window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+        window.UpdateLayout();
+
+        Assert.IsType<TViewModel>(shell.CurrentPage);
+        var view = Assert.Single(FindVisualChildren<TView>(window));
+        Assert.IsType<TViewModel>(view.DataContext);
+        Assert.Equal(Visibility.Visible, view.Visibility);
+        Assert.True(view.IsVisible);
+        Assert.True(view.ActualWidth > 0 && view.ActualHeight > 0,
+            $"{typeof(TView).Name} did not receive a non-zero layout slot.");
+        window.Close();
+    }
 
     private static void AssertContrast(
         ResourceDictionary resources,

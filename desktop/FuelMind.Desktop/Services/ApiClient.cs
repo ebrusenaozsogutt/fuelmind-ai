@@ -84,8 +84,8 @@ public sealed class ApiClient
         string? expectedMediaType = null,
         bool requirePdfSignature = false)
     {
-        using var response = await SendRequestAsync(HttpMethod.Get, relativePath, content: null, cancellationToken).ConfigureAwait(false);
-        await EnsureSuccessAsync(response, cancellationToken).ConfigureAwait(false);
+        using var response = await SendRequestAsync(HttpMethod.Get, relativePath, content: null, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
 
         if (response.StatusCode != HttpStatusCode.OK)
             throw new ApiException(response.StatusCode, "INVALID_DOWNLOAD_RESPONSE", "Dosya indirme isteği beklenen HTTP 200 yanıtını döndürmedi.");
@@ -100,7 +100,7 @@ public sealed class ApiClient
                 $"Sunucu beklenen {expectedMediaType} dosyası yerine geçersiz bir yanıt döndürdü.");
         }
 
-        var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+        var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
         if (bytes.Length == 0)
             throw new ApiException(response.StatusCode, "EMPTY_DOWNLOAD_RESPONSE", "Sunucu boş bir dosya döndürdü.");
 
@@ -119,11 +119,13 @@ public sealed class ApiClient
         HttpContent? content,
         CancellationToken cancellationToken)
     {
-        using var response = await SendRequestAsync(method, relativePath, content, cancellationToken).ConfigureAwait(false);
-        await EnsureSuccessAsync(response, cancellationToken).ConfigureAwait(false);
+        // View models update WPF-bound state after this call. Preserve the caller's
+        // synchronization context so those updates remain on the dispatcher thread.
+        using var response = await SendRequestAsync(method, relativePath, content, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
 
-        await using var responseStream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        var result = await JsonSerializer.DeserializeAsync<T>(responseStream, _jsonOptions, cancellationToken).ConfigureAwait(false);
+        await using var responseStream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var result = await JsonSerializer.DeserializeAsync<T>(responseStream, _jsonOptions, cancellationToken);
         return result ?? throw new ApiException(
             response.StatusCode,
             "INVALID_RESPONSE",

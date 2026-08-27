@@ -63,4 +63,11 @@ public sealed class ReportRowDto
     }
 }
 
-public sealed record ReportColumnDefinition(string Key, string Header, double Width = 1);
+public sealed record ReportColumnDefinition(
+    string Key,
+    string Header,
+    double Width = 1,
+    double MinWidth = 84,
+    double? MaxWidth = null,
+    bool IsNumeric = false,
+    bool UsePixelWidth = false);

@@ -297,3 +297,13 @@ def test_sale_accepts_legacy_and_commercial_snapshots(commercial_session: Sessio
     commercial_session.add(Sale(**values, start_totalizer_liters=Decimal("11"), end_totalizer_liters=Decimal("10")))
     with pytest.raises(IntegrityError):
         commercial_session.commit()
+    commercial_session.rollback()
+    commercial_session.add(
+        Sale(
+            **values,
+            start_totalizer_liters=Decimal("100"),
+            end_totalizer_liters=Decimal("111"),
+        )
+    )
+    with pytest.raises(IntegrityError):
+        commercial_session.commit()

@@ -2,6 +2,7 @@
 
 from functools import lru_cache
 from pathlib import Path
+from decimal import Decimal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -26,6 +27,9 @@ class Settings(BaseSettings):
     MODEL_REGISTRY_ROOT: Path = Path(__file__).resolve().parents[2] / "trained_models"
     LIVE_AI_HISTORY_MINUTES: int = 35
     LIVE_AI_HISTORY_LIMIT: int = 2000
+    SAFETY_STOCK_DAYS: int = 2
+    DELIVERY_LEAD_TIME_DAYS: int = 2
+    RECONCILIATION_TOLERANCE_LITERS: Decimal = Decimal("1.000")
 
     model_config = SettingsConfigDict(
         env_file=".env",

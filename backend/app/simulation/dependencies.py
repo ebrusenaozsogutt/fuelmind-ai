@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from sqlalchemy import inspect, select
@@ -38,7 +39,9 @@ from app.simulation.tank_generator import TankGenerator
 from app.simulation.tick_engine import TickEngine
 from app.simulation.validators import SimulationValidator
 from app.services.commercial_sale_service import CommercialSaleService
+from app.services.fuel_price_service import FuelPriceService
 from app.services.operations_selection_service import OperationsSelectionService
+from app.utils.enums import SimulationMode
 
 if TYPE_CHECKING:
     from app.live.event_broker import LiveEventBroker
@@ -71,7 +74,9 @@ def build_simulation_runner(
                 "attendant_shift_assignments",
             )
         )
-        clock = SimulationClock(runtime_config, run.current_simulation_time)
+        clock = SimulationClock(
+            runtime_config, _database_simulation_time(run.current_simulation_time)
+        )
         random_source = RandomSource(runtime_config.random_seed)
         prices = {code: 1.0 for code in fuel_codes.values()}
         def load_scenarios(moment):
@@ -101,7 +106,7 @@ def build_simulation_runner(
                 demand_profile=DemandProfile(),
                 commercial_selector=(
                     _commercial_selector(session_factory)
-                    if run.mode.value == "REALTIME"
+                    if run.mode in {SimulationMode.REALTIME, SimulationMode.DATASET}
                     else None
                 ),
                 operations_selector=(
@@ -114,6 +119,11 @@ def build_simulation_runner(
             validator=SimulationValidator(),
             fuel_codes_by_id=fuel_codes,
             unit_prices_by_fuel=prices,
+            unit_price_resolver=(
+                _fuel_price_resolver(session_factory)
+                if run.mode == SimulationMode.DATASET
+                else None
+            ),
             scenario_engine=ScenarioEngine(load_scenarios) if scenarios_available else ScenarioEngine(),
         )
         return SimulationRunner(
@@ -156,6 +166,27 @@ def _operations_selector(session_factory: SessionFactory):
     return select_context
 
 
+def _fuel_price_resolver(session_factory: SessionFactory):
+    """Resolve the historical price at virtual time without mutating history."""
+
+    def resolve(
+        station_id: int, fuel_type_id: int, moment: datetime
+    ) -> float | None:
+        price_session = session_factory()
+        try:
+            try:
+                price = FuelPriceService(price_session).current(
+                    station_id, fuel_type_id, moment  # type: ignore[arg-type]
+                )
+            except NotFoundError:
+                return None
+            return float(price.unit_price)
+        finally:
+            price_session.close()
+
+    return resolve
+
+
 def simulation_config_from_run(run: SimulationRun) -> SimulationConfig:
     """Convert the persisted runtime configuration of a run into Stage 3 config."""
 
@@ -166,6 +197,14 @@ def simulation_config_from_run(run: SimulationRun) -> SimulationConfig:
         random_seed=run.random_seed,
         persist_every_n_ticks=run.persist_every_n_ticks,
     )
+
+
+def _database_simulation_time(value: datetime | None) -> datetime | None:
+    """Retain UTC semantics when a lightweight database omits tzinfo on read."""
+
+    if value is None or value.tzinfo is not None:
+        return value
+    return value.replace(tzinfo=timezone.utc)
 
 
 def _build_station_state(

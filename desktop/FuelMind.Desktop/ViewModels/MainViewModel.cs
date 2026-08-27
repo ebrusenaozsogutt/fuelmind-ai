@@ -24,11 +24,13 @@ public sealed partial class MainViewModel : ObservableObject
     private readonly ReportsViewModel _reportsViewModel;
     private readonly FaultsViewModel _faultsViewModel;
     private readonly AttendantsViewModel _attendantsViewModel;
+    private readonly ForecastsViewModel _forecastsViewModel;
+    private readonly OrdersViewModel _ordersViewModel;
     private readonly Services.DetailNavigationService _detailNavigation;
 
     private readonly Services.AuthService _authService;
 
-    public MainViewModel(LoginViewModel loginViewModel, State.AuthState authState, Services.AuthService authService, LiveMonitoringViewModel liveMonitoringViewModel, FieldTopologyViewModel fieldTopologyViewModel, TanksViewModel tanksViewModel, PumpsViewModel pumpsViewModel, DashboardViewModel dashboardViewModel, SimulatorViewModel simulatorViewModel, TankDetailViewModel tankDetailViewModel, PumpDetailViewModel pumpDetailViewModel, AlarmsViewModel alarmsViewModel, ModelManagementViewModel modelManagementViewModel, CustomersViewModel customersViewModel, FuelCardsViewModel fuelCardsViewModel, FuelPricesViewModel fuelPricesViewModel, SalesHistoryViewModel salesHistoryViewModel, EndOfDayAlarmReportViewModel endOfDayAlarmReportViewModel, ReportsViewModel reportsViewModel, FaultsViewModel faultsViewModel, AttendantsViewModel attendantsViewModel, Services.DetailNavigationService detailNavigation)
+    public MainViewModel(LoginViewModel loginViewModel, State.AuthState authState, Services.AuthService authService, LiveMonitoringViewModel liveMonitoringViewModel, FieldTopologyViewModel fieldTopologyViewModel, TanksViewModel tanksViewModel, PumpsViewModel pumpsViewModel, DashboardViewModel dashboardViewModel, SimulatorViewModel simulatorViewModel, TankDetailViewModel tankDetailViewModel, PumpDetailViewModel pumpDetailViewModel, AlarmsViewModel alarmsViewModel, ModelManagementViewModel modelManagementViewModel, CustomersViewModel customersViewModel, FuelCardsViewModel fuelCardsViewModel, FuelPricesViewModel fuelPricesViewModel, SalesHistoryViewModel salesHistoryViewModel, EndOfDayAlarmReportViewModel endOfDayAlarmReportViewModel, ReportsViewModel reportsViewModel, FaultsViewModel faultsViewModel, AttendantsViewModel attendantsViewModel, ForecastsViewModel forecastsViewModel, OrdersViewModel ordersViewModel, Services.DetailNavigationService detailNavigation)
     {
         _loginViewModel = loginViewModel;
         _authState = authState;
@@ -42,7 +44,7 @@ public sealed partial class MainViewModel : ObservableObject
         _alarmsViewModel = alarmsViewModel;
         _modelManagementViewModel = modelManagementViewModel;
         _customersViewModel = customersViewModel; _fuelCardsViewModel = fuelCardsViewModel; _fuelPricesViewModel = fuelPricesViewModel; _salesHistoryViewModel = salesHistoryViewModel; _endOfDayAlarmReportViewModel = endOfDayAlarmReportViewModel; _reportsViewModel = reportsViewModel; _faultsViewModel = faultsViewModel; _attendantsViewModel = attendantsViewModel;
-        _tankDetailViewModel=tankDetailViewModel; _pumpDetailViewModel=pumpDetailViewModel; _detailNavigation=detailNavigation;
+        _tankDetailViewModel=tankDetailViewModel; _pumpDetailViewModel=pumpDetailViewModel; _forecastsViewModel=forecastsViewModel; _ordersViewModel=ordersViewModel; _detailNavigation=detailNavigation;
         _loginViewModel.LoginSucceeded += OnLoginSucceeded;
         CurrentViewModel = _loginViewModel;
 
@@ -68,7 +70,7 @@ public sealed partial class MainViewModel : ObservableObject
 
     private void ShowShell(Dtos.Auth.CurrentUserResponseDto currentUser)
     {
-        var shell = new AuthenticatedShellViewModel(currentUser, _authService, _liveMonitoringViewModel, _fieldTopologyViewModel, _tanksViewModel, _pumpsViewModel, _dashboardViewModel, _simulatorViewModel, _tankDetailViewModel, _pumpDetailViewModel, _alarmsViewModel, _modelManagementViewModel, _customersViewModel, _fuelCardsViewModel, _fuelPricesViewModel, _salesHistoryViewModel, _endOfDayAlarmReportViewModel, _reportsViewModel, _faultsViewModel, _attendantsViewModel, _detailNavigation);
+        var shell = new AuthenticatedShellViewModel(currentUser, _authService, _liveMonitoringViewModel, _fieldTopologyViewModel, _tanksViewModel, _pumpsViewModel, _dashboardViewModel, _simulatorViewModel, _tankDetailViewModel, _pumpDetailViewModel, _alarmsViewModel, _modelManagementViewModel, _customersViewModel, _fuelCardsViewModel, _fuelPricesViewModel, _salesHistoryViewModel, _endOfDayAlarmReportViewModel, _reportsViewModel, _faultsViewModel, _attendantsViewModel, _forecastsViewModel, _ordersViewModel, _detailNavigation);
         shell.LogoutRequested += (_, _) => CurrentViewModel = _loginViewModel;
         CurrentViewModel = shell;
     }

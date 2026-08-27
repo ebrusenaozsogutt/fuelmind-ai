@@ -27,11 +27,13 @@ from app.models.commercial import (
     Vehicle,
 )
 from app.models.fuel_type import FuelType
+from app.models.delivery import Delivery
 from app.models.nozzle import Nozzle
 from app.models.pump import Pump
 from app.models.sale import Sale
 from app.models.station import Station
 from app.models.tank import Tank
+from app.services.tank_reconciliation_service import TankReconciliationService
 from app.utils.enums import (
     CardLimitType,
     CardStatus,
@@ -63,6 +65,7 @@ TABLES = [
     Nozzle.__table__,
     FuelPrice.__table__,
     Sale.__table__,
+    Delivery.__table__,
 ]
 
 
@@ -220,6 +223,29 @@ def test_prepaid_sale_persists_commercial_and_totalizer_snapshots(api):
     nozzle = session.get(Nozzle, ids["nozzle"])
     assert card.prepaid_balance == Decimal("2866.00")
     assert nozzle.totalizer_liters == Decimal("100040.000")
+    assert session.get(Tank, sale["tank_id"]).current_level_liters == Decimal("7960.000")
+    session.close()
+
+
+def test_completed_sale_reconciles_against_stock_and_deliveries(api):
+    client, factory = api
+    ids = seed_commercial_context(factory)
+    assert client.post("/api/sales/commercial", json=request(ids["nozzle"], "40")).json()["completed"]
+    session = factory()
+    sale = session.query(Sale).one()
+    result = TankReconciliationService(session).reconcile(
+        tank_id=sale.tank_id,
+        period_start=datetime(2030, 1, 1, 9, tzinfo=timezone.utc),
+        period_end=datetime(2030, 1, 1, 11, tzinfo=timezone.utc),
+        opening_level_liters=Decimal("8000"),
+        actual_closing_level_liters=Decimal("7960"),
+        raise_alarm=False,
+    )
+    assert result.completed_sales_liters == Decimal("40.000")
+    assert result.delivery_liters == Decimal("0.000")
+    assert result.expected_closing_level_liters == Decimal("7960.000")
+    assert result.difference_liters == Decimal("0.000")
+    assert result.is_reconciled is True
     session.close()
 
 

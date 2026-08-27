@@ -52,6 +52,8 @@ class Alarm(Base):
     pump_id: Mapped[int | None] = mapped_column(
         ForeignKey("pumps.id", ondelete="RESTRICT"), index=True, nullable=True
     )
+    target_type: Mapped[str | None] = mapped_column(String(30), index=True, nullable=True)
+    target_id: Mapped[int | None] = mapped_column(Integer, index=True, nullable=True)
     alarm_type: Mapped[str] = mapped_column(String(100), index=True, nullable=False)
     severity: Mapped[AlarmSeverity] = mapped_column(
         SqlEnum(

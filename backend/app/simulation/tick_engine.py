@@ -1,5 +1,7 @@
 """Orchestrate one deterministic simulation tick."""
 
+from collections.abc import Callable
+from datetime import datetime
 from math import isfinite
 from numbers import Real
 
@@ -31,6 +33,7 @@ class TickEngine:
         validator: SimulationValidator,
         fuel_codes_by_id: dict[int, str],
         unit_prices_by_fuel: dict[str, float],
+        unit_price_resolver: Callable[[int, int, datetime], float | None] | None = None,
         base_sale_probability: float = 0.3,
         automatic_delivery_probability: float = 0.0,
         scenario_engine: ScenarioEngine | None = None,
@@ -58,6 +61,7 @@ class TickEngine:
             raise ValueError("fuel_codes_by_id cannot be empty.")
         self.fuel_codes_by_id = dict(fuel_codes_by_id)
         self.unit_prices_by_fuel = dict(unit_prices_by_fuel)
+        self.unit_price_resolver = unit_price_resolver
         self.base_sale_probability = base_sale_probability
         self.automatic_delivery_probability = automatic_delivery_probability
         self.scenario_engine = scenario_engine or ScenarioEngine()
@@ -96,13 +100,24 @@ class TickEngine:
             code = self.fuel_codes_by_id.get(pump.fuel_type_id)
             if code is None:
                 raise ValueError(f"Missing fuel code for {pump.fuel_type_id}.")
+            unit_price = self.unit_prices_by_fuel[code]
+            if self.unit_price_resolver is not None:
+                resolved_price = self.unit_price_resolver(
+                    station_state.station_id, pump.fuel_type_id, now
+                )
+                # Historical dataset runs must never manufacture a sale with a
+                # made-up price.  Realtime callers retain their legacy static
+                # price mapping by simply not supplying a resolver.
+                if resolved_price is None:
+                    continue
+                unit_price = resolved_price
             sale = self.sales_generator.try_start_sale(
                 station_state=station_state,
                 pump_id=pump_id,
                 moment=now,
                 base_probability=self.base_sale_probability,
                 fuel_code=code,
-                unit_price=self.unit_prices_by_fuel[code],
+                unit_price=unit_price,
                 scenario_multiplier=demand_multiplier,
             )
             if sale:

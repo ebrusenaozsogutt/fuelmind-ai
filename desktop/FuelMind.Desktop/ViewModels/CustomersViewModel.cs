@@ -73,7 +73,11 @@ public sealed partial class CustomersViewModel(ICommercialService commercialServ
     public string FleetFormTitle => IsEditingFleet ? "Filoyu Düzenle" : "Yeni Filo";
     public string FleetGroupFormTitle => IsEditingFleetGroup ? "Grubu Düzenle" : "Yeni Grup";
 
-    partial void OnSelectedCustomerChanged(CustomerReadDto? value) => _ = LoadCustomerChildrenAsync(value);
+    partial void OnSelectedCustomerChanged(CustomerReadDto? value)
+    {
+        RuntimeDiagnostics.Trace($"CustomersViewModel SelectedCustomer set: {value?.Id.ToString() ?? "<null>"}");
+        _ = LoadCustomerChildrenAsync(value);
+    }
     partial void OnSelectedFleetChanged(FleetReadDto? value)
     {
         SelectedFleetGroup = null;
@@ -86,10 +90,15 @@ public sealed partial class CustomersViewModel(ICommercialService commercialServ
 
     [RelayCommand] public async Task LoadAsync() => await ExecuteAsync(async () =>
     {
-        Replace(Customers, await commercialService.GetCustomersAsync());
+        RuntimeDiagnostics.Trace("Customers load started");
+        var customers = await commercialService.GetCustomersAsync();
+        RuntimeDiagnostics.Trace($"GET /api/customers response received; deserialize completed; count={customers.Count}");
+        RuntimeDiagnostics.Trace("Customers ViewModel mapping and ObservableCollection update started");
+        Replace(Customers, customers);
         Replace(Drivers, await commercialService.GetDriversAsync());
         SelectedCustomer ??= Customers.FirstOrDefault();
         OnPropertyChanged(nameof(IsEmpty));
+        RuntimeDiagnostics.Trace("Customers render/load completed");
     });
 
     [RelayCommand] public async Task CreateCustomerAsync()

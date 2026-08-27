@@ -24,11 +24,17 @@ class AlarmRepository:
     def active_for_key(
         self, station_id: int, target_type: str, target_id: int, alarm_type: str
     ) -> Alarm | None:
-        field = Alarm.tank_id if target_type == "TANK" else Alarm.pump_id
+        target_filter = (
+            Alarm.tank_id == target_id
+            if target_type == "TANK"
+            else Alarm.pump_id == target_id
+            if target_type == "PUMP"
+            else (Alarm.target_type == target_type) & (Alarm.target_id == target_id)
+        )
         return self.db.scalar(
             select(Alarm).where(
                 Alarm.station_id == station_id,
-                field == target_id,
+                target_filter,
                 Alarm.alarm_type == alarm_type,
                 Alarm.status.in_(
                     (

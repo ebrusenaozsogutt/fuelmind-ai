@@ -196,6 +196,21 @@ def test_persist_tick_rolls_back_and_reraises_on_write_failure(
     assert session.rollbacks == 1
 
 
+def test_persistence_rejects_zero_quantity_completed_sale(
+    persisted_tick: tuple[FakeSession, SimulationRun, SimulationTickResult, SimpleNamespace],
+) -> None:
+    """The persistence boundary must not turn an invalid domain result into a DB row."""
+
+    session, run, result, _ = persisted_tick
+    result.completed_sales[0].dispensed_quantity_liters = 0.0
+
+    with pytest.raises(ValueError, match="positive dispensed quantity"):
+        TickPersistence(session).persist(run.id, result)
+
+    assert session.commits == 0
+    assert session.rollbacks == 1
+
+
 def test_persisted_tick_is_not_written_twice(
     persisted_tick: tuple[FakeSession, SimulationRun, SimulationTickResult, SimpleNamespace],
 ) -> None:

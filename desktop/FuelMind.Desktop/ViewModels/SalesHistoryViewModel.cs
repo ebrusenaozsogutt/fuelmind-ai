@@ -36,6 +36,7 @@ public sealed partial class SalesHistoryViewModel(
         if (IsLoading) return;
         IsLoading = true;
         ErrorMessage = null;
+        RuntimeDiagnostics.Trace("Sales initial load started");
         try
         {
             var selectedId = SelectedSale?.Id;
@@ -89,9 +90,10 @@ public sealed partial class SalesHistoryViewModel(
 
             ApplyFilter(selectedId);
             OnPropertyChanged(nameof(IsEmpty));
+            RuntimeDiagnostics.Trace($"Sales response completed; collection count={Sales.Count}; IsEmpty={IsEmpty}");
         }
-        catch (Exception ex) { ErrorMessage = ToMessage(ex); }
-        finally { IsLoading = false; }
+        catch (Exception ex) { RuntimeDiagnostics.Exception("Sales load", ex); ErrorMessage = ToMessage(ex); }
+        finally { IsLoading = false; RuntimeDiagnostics.Trace($"Sales final UI state; IsLoading={IsLoading}; IsEmpty={IsEmpty}"); }
     }
 
     partial void OnSelectedSaleTypeChanged(string value)

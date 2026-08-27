@@ -32,7 +32,8 @@ def seed_demo_users(db: Session) -> list[User]:
     )
     try:
         for username, full_name, role, password in demo_users:
-            if repository.get_by_username(username) is None:
+            user = repository.get_by_username(username)
+            if user is None:
                 created.append(
                     repository.create(
                         {
@@ -44,6 +45,13 @@ def seed_demo_users(db: Session) -> list[User]:
                         }
                     )
                 )
+            else:
+                # This command is explicitly development-only; re-seeding must keep
+                # the documented local demo credentials usable.
+                user.full_name = full_name
+                user.role = role
+                user.is_active = True
+                user.password_hash = hash_password(password)
         db.commit()
         for user in created:
             db.refresh(user)
