@@ -48,6 +48,18 @@ def live_api(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(live, "SessionLocal", factory)
     app.dependency_overrides[get_db] = lambda: factory()
     app.dependency_overrides[require_operator_or_admin] = lambda: object()
+    active_runs = {"station_id": None, "run_id": None}
+    live_manager = type(
+        "LiveManager",
+        (),
+        {
+            "active_run_id_for_station": lambda _, station_id: (
+                active_runs["run_id"]
+                if station_id == active_runs["station_id"]
+                else None
+            )
+        },
+    )()
     session = factory()
     fuel = FuelType(name="Diesel", code="DSL")
     first = Station(code="S-1", name="First", city="A", district="A", address="A")
@@ -63,10 +75,13 @@ def live_api(monkeypatch: pytest.MonkeyPatch):
     pump_two = Pump(station_id=second.id, tank_id=tank_two.id, code="P-2", status=PumpStatus.IDLE, nominal_flow_rate=10, minimum_flow_rate=1, maximum_motor_current=10, maximum_pressure=10)
     session.add_all([pump_one, pump_two])
     session.commit()
-    data = {"session": session, "station": first, "other_station": second, "empty_station": empty, "tank": tank_one, "other_tank": tank_two, "pump": pump_one, "other_pump": pump_two}
+    data = {"session": session, "station": first, "other_station": second, "empty_station": empty, "tank": tank_one, "other_tank": tank_two, "pump": pump_one, "other_pump": pump_two, "active_runs": active_runs}
     try:
         with TestClient(app) as client:
+            original_manager = app.state.simulation_manager
+            app.state.simulation_manager = live_manager
             yield client, data
+            app.state.simulation_manager = original_manager
     finally:
         session.close()
         app.dependency_overrides.clear()
@@ -134,6 +149,7 @@ def test_live_status_uses_latest_station_readings_and_missing_station_is_404(liv
     client, data = live_api
     now = utc_now()
     assert client.get(f"/api/stations/{data['station'].id}/live-status").status_code == 200
+    data["active_runs"].update(station_id=data["station"].id, run_id=77)
     data["session"].add_all([_reading(data, at=now - timedelta(minutes=2), sequence=10), _reading(data, at=now - timedelta(minutes=1), sequence=11)])
     data["session"].commit()
     response = client.get(f"/api/stations/{data['station'].id}/live-status")
@@ -145,6 +161,24 @@ def test_live_status_uses_latest_station_readings_and_missing_station_is_404(liv
     assert payload["controllers"] == payload["ports"] == payload["probes"] == []
     assert payload["nozzles"] == []
     assert client.get("/api/stations/99999/live-status").status_code == 404
+
+
+def test_live_status_ignores_old_run_packets_after_a_new_run_starts(live_api) -> None:
+    """A sequence restart must not make dashboard select the old run's tail."""
+
+    client, data = live_api
+    now = utc_now()
+    old = _reading(data, at=now - timedelta(seconds=1), sequence=91)
+    active = _reading(data, at=now - timedelta(seconds=2), sequence=1)
+    active.simulation_run_id = 78
+    data["session"].add_all([old, active])
+    data["session"].commit()
+    data["active_runs"].update(station_id=data["station"].id, run_id=78)
+
+    payload = client.get(f"/api/stations/{data['station'].id}/live-status").json()
+
+    assert payload["latest_sequence"] == 1
+    assert {item["simulation_run_id"] for item in payload["tanks"] + payload["pumps"]} == {78}
 
 
 @pytest.mark.parametrize("role", [UserRole.ADMIN, UserRole.OPERATOR])

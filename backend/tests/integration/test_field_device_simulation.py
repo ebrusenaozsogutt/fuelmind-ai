@@ -36,7 +36,7 @@ from app.simulation import (
     TankGenerator,
     TickEngine,
 )
-from app.simulation.dependencies import _build_station_state, _operations_selector
+from app.simulation.dependencies import _build_station_state, _operations_selector, build_simulation_runner
 from app.simulation.persistence import TickPersistence
 from app.simulation.sales_generator import SaleAdvanceResult
 from app.simulation.state import ActiveSaleState, PumpState, TankState
@@ -246,6 +246,69 @@ def test_simulated_probe_readings_are_persisted_and_available_through_rest(field
     assert len(response.json()) == 3
     assert len(tank_response.json()) == 3
     assert response.json()[0]["sequence_number"] == 3
+
+
+def test_new_run_builds_fresh_clock_and_runtime_state(field_simulation_db) -> None:
+    """New runs inherit master configuration, never a prior runner's memory."""
+
+    factory, session, data = field_simulation_db
+    # Simulate a depleted terminal level left by a preceding run.  This is the
+    # mutable master-table value that a new run used to adopt incorrectly.
+    data["tank"].current_level_liters = Decimal("281")
+    session.commit()
+    prior_state, _ = _build_station_state(session, data["run"])
+    prior_state.sequence_number = 23
+    prior_state.active_sales[data["pump"].id] = ActiveSaleState(
+        sale_id="OLD-SALE",
+        station_id=data["station"].id,
+        tank_id=data["tank"].id,
+        pump_id=data["pump"].id,
+        fuel_type_id=data["tank"].fuel_type_id,
+        started_at=data["run"].current_simulation_time,
+        target_quantity_liters=10,
+        dispensed_quantity_liters=0,
+        unit_price=1,
+    )
+    start = datetime(2026, 8, 15, 9, tzinfo=timezone.utc)
+    new_run = SimulationRun(
+        station_id=data["station"].id,
+        status=SimulationStatus.CREATED,
+        simulation_start_time=start,
+        current_simulation_time=start,
+        sequence_number=0,
+        generated_sensor_count=0,
+        generated_sale_count=0,
+        generated_delivery_count=0,
+    )
+    session.add(new_run)
+    session.commit()
+
+    runner = build_simulation_runner(new_run.id, session_factory=factory)
+
+    assert runner.tick_engine.clock.current_time == start
+    assert runner.station_state.sequence_number == 0
+    assert runner.station_state.active_sales == {}
+    assert runner.station_state is not prior_state
+    assert runner.station_state.get_tank(data["tank"].id) is not prior_state.get_tank(data["tank"].id)
+    assert runner.station_state.get_tank(data["tank"].id).true_level_liters != 281
+    assert 750 <= runner.station_state.get_tank(data["tank"].id).true_level_liters <= 800
+    assert runner.station_state.get_pump(data["pump"].id) is not prior_state.get_pump(data["pump"].id)
+    assert runner.tick_engine.run_tick(runner.station_state).sequence_number == 1
+
+
+def test_resume_rebuild_preserves_the_run_persisted_tank_state(field_simulation_db) -> None:
+    """Recovery/rebuild for an existing run retains its own terminal level."""
+
+    _, session, data = field_simulation_db
+    run = data["run"]
+    run.sequence_number = 23
+    data["tank"].current_level_liters = Decimal("281")
+    session.commit()
+
+    state, _ = _build_station_state(session, run)
+
+    assert state.sequence_number == 23
+    assert state.get_tank(data["tank"].id).true_level_liters == 281
 
 
 def test_completed_sale_updates_nozzle_totalizer_atomically(field_simulation_db, monkeypatch: pytest.MonkeyPatch) -> None:

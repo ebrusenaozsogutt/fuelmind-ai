@@ -33,7 +33,9 @@ from app.models.pump import Pump
 from app.models.sale import Sale
 from app.models.station import Station
 from app.models.tank import Tank
+from app.services.commercial_sale_service import CommercialSaleService
 from app.services.tank_reconciliation_service import TankReconciliationService
+from app.simulation.random_source import RandomSource
 from app.utils.enums import (
     CardLimitType,
     CardStatus,
@@ -281,6 +283,45 @@ def test_insufficient_prepaid_rejection_leaves_card_sale_and_totalizer_unchanged
     assert session.query(Sale).count() == 0
     assert session.get(FuelCard, ids["card"]).prepaid_balance == Decimal("100")
     assert session.get(Nozzle, ids["nozzle"]).totalizer_liters == Decimal("100000")
+    session.close()
+
+
+def test_simulation_sale_selection_falls_back_from_insufficient_prepaid_card(api):
+    _, factory = api
+    ids = seed_commercial_context(factory, balance="100")
+    session = factory()
+    first_card = session.get(FuelCard, ids["card"])
+    nozzle = session.get(Nozzle, ids["nozzle"])
+    assert first_card is not None and nozzle is not None
+    fallback = FuelCard(
+        vehicle_id=first_card.vehicle_id,
+        card_code="DEMO-CARD-FALLBACK",
+        display_name="Fallback demo card",
+        unit_id="UNIT-DEMO-FALLBACK",
+        status=CardStatus.ACTIVE,
+        valid_from=date(2020, 1, 1),
+        payment_type=PaymentType.PREPAID,
+        prepaid_balance=Decimal("5000"),
+    )
+    session.add(fallback)
+    session.flush()
+    session.add_all([
+        FuelCardAllowedStation(fuel_card_id=fallback.id, station_id=nozzle.pump.station_id),
+        FuelCardAllowedFuelType(fuel_card_id=fallback.id, fuel_type_id=nozzle.fuel_type_id),
+    ])
+    session.commit()
+
+    selection = CommercialSaleService(session).prepare_simulation_sale(
+        station_id=nozzle.pump.station_id,
+        fuel_type_id=nozzle.fuel_type_id,
+        quantity_liters=Decimal("40"),
+        started_at=datetime(2030, 1, 1, 10, tzinfo=timezone.utc),
+        random_source=RandomSource(42),
+    )
+
+    assert selection.snapshot is not None
+    assert selection.snapshot.fuel_card_id == fallback.id
+    assert first_card.prepaid_balance == Decimal("100")
     session.close()
 
 

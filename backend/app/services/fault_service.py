@@ -93,6 +93,8 @@ class FaultService:
         fault = self.get(fault_id)
         if fault.status == FaultStatus.RESOLVED:
             raise BusinessRuleError("Resolved faults cannot be investigated.")
+        if fault.status != FaultStatus.OPEN:
+            raise BusinessRuleError("Only open faults can be investigated.")
         old_status = fault.status
         fault.status = FaultStatus.INVESTIGATING
         AuditService(self.db).record(action=AuditAction.INVESTIGATE, entity_type="FAULT", entity_id=fault.id, user_id=user_id, username=username, station_id=fault.station_id, old_values={"status": old_status}, new_values={"status": fault.status}, description="Fault investigation started")
@@ -102,6 +104,9 @@ class FaultService:
         fault = self.get(fault_id)
         if fault.status == FaultStatus.RESOLVED:
             raise BusinessRuleError("Fault is already resolved.")
+        note = resolution_note.strip()
+        if not note:
+            raise BusinessRuleError("A resolution note is required.")
         user = self.db.get(User, user_id)
         if user is None or not user.is_active:
             raise BusinessRuleError("Resolver user must be active.")
@@ -109,7 +114,7 @@ class FaultService:
         fault.status = FaultStatus.RESOLVED
         fault.resolved_at = utc_now()
         fault.resolved_by = user_id
-        fault.resolution_note = resolution_note.strip()
+        fault.resolution_note = note
         AuditService(self.db).record(action=AuditAction.RESOLVE, entity_type="FAULT", entity_id=fault.id, user_id=user_id, username=username, station_id=fault.station_id, old_values=old_values, new_values={"status": fault.status, "resolution_note": fault.resolution_note, "resolved_by": user_id}, description="Fault resolved")
         return self._commit(fault)
 

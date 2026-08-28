@@ -38,6 +38,14 @@ class FaultCreate(BaseModel):
 class FaultResolution(BaseModel):
     resolution_note: str = Field(min_length=1)
 
+    @field_validator("resolution_note")
+    @classmethod
+    def require_non_blank_note(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("resolution_note cannot be blank.")
+        return value
+
 
 class FaultRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)

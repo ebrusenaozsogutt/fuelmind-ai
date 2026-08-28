@@ -12,28 +12,33 @@ public sealed partial class FaultsViewModel(IFaultService service, IStationServi
 {
     public ObservableCollection<FaultDto> Faults { get; } = [];
     public ObservableCollection<StationDto> Stations { get; } = [];
-    public IReadOnlyList<string> Statuses { get; } = ["ALL", "OPEN", "INVESTIGATING", "RESOLVED"];
-    public IReadOnlyList<string> FaultTypes { get; } = ["ALL", "COMMUNICATION", "CONNECTION", "INITIALIZATION", "INTERFACE", "SENSOR", "EQUIPMENT", "NOZZLE"];
-    public IReadOnlyList<string> FaultCodes { get; } = ["ALL", "INTERFACE_ERROR", "PUMP_NOT_CONNECTED", "USC_INITIALIZATION_ERROR", "PORT_COMMUNICATION_ERROR", "PROBE_COMMUNICATION_ERROR", "SENSOR_ERROR", "NOZZLE_ERROR"];
-    public IReadOnlyList<string> TargetTypes { get; } = ["ALL", "CONTROLLER", "PORT", "PUMP", "PROBE", "NOZZLE", "TANK", "SENSOR"];
+    public IReadOnlyList<string> Statuses { get; } = ["Tümü", "Açık", "İnceleniyor", "Çözüldü"];
+    public IReadOnlyList<string> FaultTypes { get; } = ["Tümü", "Haberleşme", "Bağlantı", "Başlatma", "Arayüz", "Sensör", "Ekipman", "Tabanca"];
+    public IReadOnlyList<string> FaultCodes { get; } = ["Tümü", "Arayüz hatası", "Pompa bağlı değil", "USC başlatma hatası", "Port haberleşme hatası", "Probe haberleşme hatası", "Sensör hatası", "Tabanca hatası"];
+    public IReadOnlyList<string> TargetTypes { get; } = ["Tümü", "Kontrolör", "Haberleşme Portu", "Pompa", "Probe", "Tabanca", "Tank", "Sensör"];
 
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(CanInvestigate)), NotifyPropertyChangedFor(nameof(CanResolve)), NotifyPropertyChangedFor(nameof(IsResolutionNoteEditable)), NotifyCanExecuteChangedFor(nameof(InvestigateCommand)), NotifyCanExecuteChangedFor(nameof(ResolveCommand))] private FaultDto? _selectedFault;
-    [ObservableProperty] private string _status = "ALL";
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(CanInvestigate)), NotifyPropertyChangedFor(nameof(CanResolve)), NotifyPropertyChangedFor(nameof(IsResolutionNoteEditable)), NotifyPropertyChangedFor(nameof(ResolutionNoteHelpText)), NotifyCanExecuteChangedFor(nameof(InvestigateCommand)), NotifyCanExecuteChangedFor(nameof(ResolveCommand))] private FaultDto? _selectedFault;
+    [ObservableProperty] private string _status = "Tümü";
     [ObservableProperty] private StationDto? _filterStation;
-    [ObservableProperty] private string _filterFaultType = "ALL";
-    [ObservableProperty] private string _filterFaultCode = "ALL";
-    [ObservableProperty] private string _filterTargetType = "ALL";
+    [ObservableProperty] private string _filterFaultType = "Tümü";
+    [ObservableProperty] private string _filterFaultCode = "Tümü";
+    [ObservableProperty] private string _filterTargetType = "Tümü";
     [ObservableProperty] private DateTime? _detectedFrom;
     [ObservableProperty] private DateTime? _detectedTo;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(CanResolve)), NotifyCanExecuteChangedFor(nameof(ResolveCommand))] private string _newResolutionNote = "";
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(CanInvestigate)), NotifyPropertyChangedFor(nameof(CanResolve)), NotifyPropertyChangedFor(nameof(IsResolutionNoteEditable)), NotifyCanExecuteChangedFor(nameof(InvestigateCommand)), NotifyCanExecuteChangedFor(nameof(ResolveCommand))] private bool _isLoading;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(CanInvestigate)), NotifyPropertyChangedFor(nameof(CanResolve)), NotifyPropertyChangedFor(nameof(IsResolutionNoteEditable)), NotifyPropertyChangedFor(nameof(ResolutionNoteHelpText)), NotifyCanExecuteChangedFor(nameof(InvestigateCommand)), NotifyCanExecuteChangedFor(nameof(ResolveCommand))] private bool _isLoading;
     [ObservableProperty] private string? _errorMessage;
     [ObservableProperty] private string? _successMessage;
 
     public bool IsEmpty => !IsLoading && Faults.Count == 0 && ErrorMessage is null;
-    public bool CanInvestigate => !IsLoading && SelectedFault?.Status == "OPEN";
-    public bool CanResolve => !IsLoading && (SelectedFault?.Status is "OPEN" or "INVESTIGATING") && !string.IsNullOrWhiteSpace(NewResolutionNote);
-    public bool IsResolutionNoteEditable => !IsLoading && (SelectedFault?.Status is "OPEN" or "INVESTIGATING");
+    public bool CanInvestigate => !IsLoading && HasStatus("OPEN");
+    public bool CanResolve => !IsLoading && HasOpenLifecycleStatus() && !string.IsNullOrWhiteSpace(NewResolutionNote);
+    public bool IsResolutionNoteEditable => !IsLoading && HasOpenLifecycleStatus();
+    public string ResolutionNoteHelpText => SelectedFault is null
+        ? "Çözüm notu eklemek için listeden bir arıza seçin."
+        : IsResolutionNoteEditable
+            ? "Arıza çözülürken yapılan işlemleri bu alana yazın."
+            : "Bu arıza daha önce çözüldüğü için durumu değiştirilemez.";
 
     public async Task LoadAsync() => await Run(async () => { Replace(Stations, await stations.GetActiveStationsAsync()); await LoadFaultsCoreAsync(); });
     [RelayCommand] private Task RefreshAsync() => LoadAsync();
@@ -81,6 +86,7 @@ public sealed partial class FaultsViewModel(IFaultService service, IStationServi
     partial void OnSelectedFaultChanged(FaultDto? value)
     {
         NewResolutionNote = "";
+        OnPropertyChanged(nameof(ResolutionNoteHelpText));
     }
 
     private bool CanInvestigateFault() => CanInvestigate;
@@ -97,13 +103,19 @@ public sealed partial class FaultsViewModel(IFaultService service, IStationServi
     private string BuildFilterQuery()
     {
         var parts = new List<string>();
-        Add("station_id", FilterStation?.Id.ToString(CultureInfo.InvariantCulture)); Add("fault_type", FilterFaultType == "ALL" ? null : FilterFaultType); Add("fault_code", FilterFaultCode == "ALL" ? null : FilterFaultCode); Add("status", Status == "ALL" ? null : Status); Add("target_type", FilterTargetType == "ALL" ? null : FilterTargetType); Add("detected_from", FormatDate(DetectedFrom, false)); Add("detected_to", FormatDate(DetectedTo, true));
+        Add("station_id", FilterStation?.Id.ToString(CultureInfo.InvariantCulture)); Add("fault_type", FaultTypeValue(FilterFaultType)); Add("fault_code", FaultCodeValue(FilterFaultCode)); Add("status", StatusValue(Status)); Add("target_type", TargetTypeValue(FilterTargetType)); Add("detected_from", FormatDate(DetectedFrom, false)); Add("detected_to", FormatDate(DetectedTo, true));
         return parts.Count == 0 ? "" : "?" + string.Join("&", parts);
         void Add(string key, string? value) { if (!string.IsNullOrWhiteSpace(value)) parts.Add($"{key}={Uri.EscapeDataString(value)}"); }
     }
     private static string? FormatDate(DateTime? value, bool endOfDay) => value is DateTime date ? new DateTimeOffset(DateTime.SpecifyKind(endOfDay ? date.Date.AddDays(1).AddTicks(-1) : date.Date, DateTimeKind.Local)).ToUniversalTime().ToString("O") : null;
     private async Task Run(Func<Task> action) { if (IsLoading) return; IsLoading = true; ErrorMessage = null; SuccessMessage = null; try { await action(); } catch (Exception ex) { ErrorMessage = ErrorText(ex); } finally { IsLoading = false; OnPropertyChanged(nameof(IsEmpty)); } }
-    private void ResetFilters() => (FilterStation, FilterFaultType, FilterFaultCode, FilterTargetType, Status, DetectedFrom, DetectedTo) = (null, "ALL", "ALL", "ALL", "ALL", null, null);
+    private bool HasStatus(string expected) => string.Equals(SelectedFault?.Status, expected, StringComparison.OrdinalIgnoreCase);
+    private bool HasOpenLifecycleStatus() => HasStatus("OPEN") || HasStatus("INVESTIGATING");
+    private static string? StatusValue(string value) => value switch { "Açık" or "OPEN" => "OPEN", "İnceleniyor" or "INVESTIGATING" => "INVESTIGATING", "Çözüldü" or "RESOLVED" => "RESOLVED", _ => null };
+    private static string? FaultTypeValue(string value) => value switch { "Haberleşme" or "COMMUNICATION" => "COMMUNICATION", "Bağlantı" or "CONNECTION" => "CONNECTION", "Başlatma" or "INITIALIZATION" => "INITIALIZATION", "Arayüz" or "INTERFACE" => "INTERFACE", "Sensör" or "SENSOR" => "SENSOR", "Ekipman" or "EQUIPMENT" => "EQUIPMENT", "Tabanca" or "NOZZLE" => "NOZZLE", _ => null };
+    private static string? FaultCodeValue(string value) => value switch { "Arayüz hatası" or "INTERFACE_ERROR" => "INTERFACE_ERROR", "Pompa bağlı değil" or "PUMP_NOT_CONNECTED" => "PUMP_NOT_CONNECTED", "USC başlatma hatası" or "USC_INITIALIZATION_ERROR" => "USC_INITIALIZATION_ERROR", "Port haberleşme hatası" or "PORT_COMMUNICATION_ERROR" => "PORT_COMMUNICATION_ERROR", "Probe haberleşme hatası" or "PROBE_COMMUNICATION_ERROR" => "PROBE_COMMUNICATION_ERROR", "Sensör hatası" or "SENSOR_ERROR" => "SENSOR_ERROR", "Tabanca hatası" or "NOZZLE_ERROR" => "NOZZLE_ERROR", _ => null };
+    private static string? TargetTypeValue(string value) => value switch { "Kontrolör" or "CONTROLLER" => "CONTROLLER", "Haberleşme Portu" or "PORT" => "PORT", "Pompa" or "PUMP" => "PUMP", "Probe" or "PROBE" => "PROBE", "Tabanca" or "NOZZLE" => "NOZZLE", "Tank" or "TANK" => "TANK", "Sensör" or "SENSOR" => "SENSOR", _ => null };
+    private void ResetFilters() => (FilterStation, FilterFaultType, FilterFaultCode, FilterTargetType, Status, DetectedFrom, DetectedTo) = (null, "Tümü", "Tümü", "Tümü", "Tümü", null, null);
     private static string ErrorText(Exception ex)
     {
         var api = ex as ApiException;
@@ -114,6 +126,8 @@ public sealed partial class FaultsViewModel(IFaultService service, IStationServi
                 ? "Bu arıza zaten çözülmüş."
                 : message.Contains("cannot be investigated", StringComparison.OrdinalIgnoreCase)
                     ? "Çözülmüş bir arıza yeniden incelemeye alınamaz."
+                    : message.Contains("only open faults", StringComparison.OrdinalIgnoreCase)
+                        ? "Yalnızca açık arızalar incelemeye alınabilir."
                     : message;
     }
     private static void Replace<T>(ObservableCollection<T> destination, IEnumerable<T> items) { destination.Clear(); foreach (var item in items) destination.Add(item); }

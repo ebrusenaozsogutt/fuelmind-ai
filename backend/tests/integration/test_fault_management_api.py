@@ -110,6 +110,8 @@ def test_alarm_link_target_rules_and_resolution_lifecycle(fault_api):
     assert client.post("/api/faults", json=payload(ids, target_id=ids["other_pump"])).status_code == 400
     investigating = client.patch(f"/api/faults/{fault['id']}/investigate")
     assert investigating.json()["status"] == "INVESTIGATING"
+    assert client.patch(f"/api/faults/{fault['id']}/investigate").status_code == 400
+    assert client.patch(f"/api/faults/{fault['id']}/resolve", json={"resolution_note": "   "}).status_code == 422
     resolved = client.patch(f"/api/faults/{fault['id']}/resolve", json={"resolution_note": "Cable reseated"})
     assert resolved.status_code == 200
     assert resolved.json()["status"] == "RESOLVED"
@@ -118,6 +120,7 @@ def test_alarm_link_target_rules_and_resolution_lifecycle(fault_api):
     assert resolved.json()["resolution_note"] == "Cable reseated"
     assert resolved.json()["resolved_at"] is not None
     assert client.patch(f"/api/faults/{fault['id']}/resolve", json={"resolution_note": "Again"}).status_code == 400
+    assert client.patch(f"/api/faults/{fault['id']}/investigate").status_code == 400
     audits = client.get("/api/audit-logs", params={"entity_type": "FAULT", "entity_id": fault["id"], "action": "RESOLVE"})
     assert audits.status_code == 200
     audit = audits.json()[0]

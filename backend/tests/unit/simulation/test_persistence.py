@@ -1,6 +1,7 @@
 """Unit tests for the atomic simulation tick persistence boundary."""
 
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
@@ -12,7 +13,8 @@ from app.simulation.persistence import TickPersistence
 from app.simulation.sales_generator import SaleAdvanceResult
 from app.simulation.state import ActiveSaleState, PumpState, TankState
 from app.simulation.tick_result import SimulationTickEvent, SimulationTickResult
-from app.utils.enums import PumpStatus, SimulationStatus
+from app.services.commercial_sale_service import CommercialSaleService, CommercialSaleSnapshot
+from app.utils.enums import PaymentType, PumpStatus, SimulationStatus
 
 
 class FakeSession:
@@ -223,3 +225,49 @@ def test_persisted_tick_is_not_written_twice(
     assert not persistence.persist(run.id, result)
     assert len(session.added) == 5
     assert session.commits == 1
+
+
+def test_insufficient_simulation_card_payment_skips_sale_and_allows_hundreds_of_ticks(
+    persisted_tick: tuple[FakeSession, SimulationRun, SimulationTickResult, SimpleNamespace],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Expected payment rejections must not stop the simulation persistence loop."""
+
+    session, run, result, _ = persisted_tick
+    result.completed_sales[0].commercial_snapshot = CommercialSaleSnapshot(
+        customer_id=1,
+        fleet_id=1,
+        fleet_group_id=1,
+        vehicle_id=1,
+        driver_id=None,
+        fuel_card_id=1,
+        list_unit_price=Decimal("55"),
+        discount_rate=Decimal("0"),
+        applied_unit_price=Decimal("55"),
+        payment_type=PaymentType.PREPAID,
+    )
+
+    def reject_payment(*_: object, **__: object) -> Decimal:
+        from app.exceptions import BusinessRuleError
+
+        raise BusinessRuleError("Fuel card prepaid balance is insufficient.")
+
+    monkeypatch.setattr(CommercialSaleService, "finalize_simulation_payment", reject_payment)
+    persistence = TickPersistence(session)
+    for sequence in range(1, 301):
+        tick = SimulationTickResult(
+            station_id=result.station_id,
+            simulation_time=result.simulation_time + timedelta(seconds=sequence),
+            sequence_number=sequence,
+            tank_results=result.tank_results,
+            pump_results=result.pump_results,
+            sale_results=result.sale_results,
+            completed_sales=result.completed_sales,
+            deliveries=[],
+        )
+        assert persistence.persist(run.id, tick)
+        assert tick.events[-1].event_type == "SALE_PAYMENT_REJECTED"
+
+    assert run.sequence_number == 300
+    assert run.generated_sale_count == 0
+    assert session.commits == 300

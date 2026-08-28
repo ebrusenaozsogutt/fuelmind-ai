@@ -104,13 +104,14 @@ class LiveTopologyService:
         *,
         dispensing_nozzle_ids: set[int] | frozenset[int] = frozenset(),
         include_latest_probe_readings: bool = False,
+        simulation_run_id: int | None = None,
     ) -> LiveTopologySnapshot:
         """Return a current flat snapshot; absent Stage 9 tables mean empty lists."""
 
         controllers = self._controllers(station_id)
         ports = self._ports(station_id)
         latest_readings = (
-            self._latest_probe_readings(station_id)
+            self._latest_probe_readings(station_id, simulation_run_id=simulation_run_id)
             if include_latest_probe_readings
             else {}
         )
@@ -239,12 +240,14 @@ class LiveTopologyService:
             ).all()
         )
 
-    def _latest_probe_readings(self, station_id: int) -> dict[int, ProbeReading]:
+    def _latest_probe_readings(
+        self, station_id: int, *, simulation_run_id: int | None = None
+    ) -> dict[int, ProbeReading]:
         if not {Tank.__tablename__, TankProbe.__tablename__, ProbeReading.__tablename__} <= set(
             self._tables.get_table_names()
         ):
             return {}
-        ranked = (
+        ranked_query = (
             select(
                 ProbeReading.id.label("reading_id"),
                 func.row_number()
@@ -259,8 +262,12 @@ class LiveTopologyService:
             )
             .join(Tank, ProbeReading.tank_id == Tank.id)
             .where(Tank.station_id == station_id)
-            .subquery()
         )
+        if simulation_run_id is not None:
+            ranked_query = ranked_query.where(
+                ProbeReading.simulation_run_id == simulation_run_id
+            )
+        ranked = ranked_query.subquery()
         readings = self.db.scalars(
             select(ProbeReading).where(
                 ProbeReading.id.in_(

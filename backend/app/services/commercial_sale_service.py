@@ -346,6 +346,14 @@ class CommercialSaleService:
             except NotFoundError:
                 decision_code = "FUEL_PRICE_NOT_CONFIGURED"
                 continue
+            # Authorization validates operational/card rules, while monetary
+            # capacity is priced here.  Reject this candidate before an
+            # in-memory simulation sale starts so another eligible card can
+            # be selected instead of failing at settlement time.
+            payment_failure = self._payment_failure(card, pricing.total_amount)
+            if payment_failure is not None:
+                decision_code = payment_failure.decision_code
+                continue
             assignment = self.assignments.current_for_vehicle(vehicle.id, started_at.date())
             return CommercialSaleSelection(
                 configured=True,

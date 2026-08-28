@@ -9,12 +9,13 @@ from datetime import datetime
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, Query, Request, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
 from app.database import get_db
 from app.live.connection_manager import ConnectionManager
+from app.simulation.manager import SimulationManager
 from app.repositories.station_repository import StationRepository
 from app.utils.datetime_utils import utc_now
 from app.config import settings
@@ -48,8 +49,24 @@ def pump_sensor_history(pump_id: int, filters: Annotated[dict[str, object], Depe
 
 
 @router.get("/stations/{station_id}/live-status", response_model=LiveStatusRead)
-def station_live_status(station_id: int, db: Annotated[Session, Depends(get_db)], _: Annotated[User, Depends(require_operator_or_admin)]):
-    return LiveHistoryService(db).status(station_id)
+def station_live_status(
+    station_id: int,
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+    _: Annotated[User, Depends(require_operator_or_admin)],
+):
+    """Return only the process-owned realtime run's live snapshot.
+
+    Historical readings are intentionally retained in the database, but they
+    are not runtime state.  A new run gets a fresh clock and sequence starting
+    at one, so selecting the manager's active run prevents old packets from
+    being shown as the new run's current status.
+    """
+    manager: SimulationManager | None = getattr(
+        request.app.state, "simulation_manager", None
+    )
+    run_id = manager.active_run_id_for_station(station_id) if manager else None
+    return LiveHistoryService(db).status(station_id, simulation_run_id=run_id)
 
 
 async def _heartbeat(manager: ConnectionManager, station_id: int, websocket: WebSocket) -> None:

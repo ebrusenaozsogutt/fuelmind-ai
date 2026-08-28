@@ -71,6 +71,27 @@ public sealed class ManualAcceptanceRegressionTests
     }
 
     [Fact]
+    public void DashboardAverageTankFill_UsesTotalVolumeOverTotalCapacity()
+    {
+        var store = new LiveDataStore(Dispatcher.CurrentDispatcher);
+        store.ApplySimulationTick(new SimulationTickDto
+        {
+            SimulationRunId = 9,
+            StationId = 2,
+            Sequence = 1,
+            SimulationTime = DateTimeOffset.UtcNow,
+            GeneratedAt = DateTimeOffset.UtcNow,
+            Tanks = [
+                new TankLiveDataDto { TankId = 1, CapacityLiters = 1_000, MeasuredLevelLiters = 800 },
+                new TankLiveDataDto { TankId = 2, CapacityLiters = 9_000, MeasuredLevelLiters = 4_500 },
+            ],
+        });
+        var dashboard = new DashboardViewModel(store, CreateApiClient(new RecordingHandler("{}")), new DetailNavigationService());
+
+        Assert.Equal("%53", dashboard.AverageTankFill);
+    }
+
+    [Fact]
     public void FieldTopology_TracksGlobalStation_AndSeparatesErrorFromEmptyState()
     {
         var store = new LiveDataStore(Dispatcher.CurrentDispatcher);

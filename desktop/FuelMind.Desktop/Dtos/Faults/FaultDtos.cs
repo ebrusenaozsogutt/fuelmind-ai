@@ -21,6 +21,38 @@ public sealed class FaultDto
     [JsonPropertyName("resolution_note")] public string? ResolutionNote { get; init; }
     [JsonPropertyName("resolved_by")] public int? ResolvedBy { get; init; }
     [JsonPropertyName("resolved_by_name")] public string? ResolvedByName { get; init; }
+
+    public string DurumMetni => Status switch
+    {
+        "OPEN" => "Açık",
+        "INVESTIGATING" => "İnceleniyor",
+        "RESOLVED" => "Çözüldü",
+        _ => Status,
+    };
+
+    public string ArızaTürüMetni => FaultType switch
+    {
+        "COMMUNICATION" => "Haberleşme",
+        "CONNECTION" => "Bağlantı",
+        "INITIALIZATION" => "Başlatma",
+        "INTERFACE" => "Arayüz",
+        "SENSOR" => "Sensör",
+        "EQUIPMENT" => "Ekipman",
+        "NOZZLE" => "Tabanca",
+        _ => FaultType,
+    };
+
+    public string CihazTürüMetni => TargetType switch
+    {
+        "CONTROLLER" => "Kontrolör",
+        "PORT" => "Haberleşme Portu",
+        "PUMP" => "Pompa",
+        "PROBE" => "Probe",
+        "NOZZLE" => "Tabanca",
+        "TANK" => "Tank",
+        "SENSOR" => "Sensör",
+        _ => TargetType,
+    };
 }
 
 public sealed class FaultCreateDto

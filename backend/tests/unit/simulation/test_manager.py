@@ -158,6 +158,25 @@ async def test_concurrent_start_creates_only_one_task(
 
 
 @pytest.mark.asyncio
+async def test_start_new_finalizes_the_previous_station_runner(
+    manager_parts: tuple[SimulationManager, SimpleNamespace],
+) -> None:
+    """The new-run workflow must not leave an old runtime task alive."""
+
+    manager, store = manager_parts
+    runner = await manager.start_run(1)
+    await asyncio.wait_for(runner.started.wait(), timeout=1)
+    store.runs[1].status = SimulationStatus.RUNNING
+
+    stopped_run_id = await manager.stop_active_realtime_run(10)
+
+    assert stopped_run_id == 1
+    assert runner.stop_calls == 1
+    assert not manager.is_active(1)
+    assert manager.active_run_id_for_station(10) is None
+
+
+@pytest.mark.asyncio
 async def test_station_realtime_conflict_uses_owned_runner_not_stale_database_row(
     manager_parts: tuple[SimulationManager, SimpleNamespace],
 ) -> None:

@@ -255,6 +255,7 @@ class SimulationRunner:
             return LiveTopologyService(session).snapshot(
                 self.station_state.station_id,
                 dispensing_nozzle_ids=dispensing_nozzle_ids,
+                simulation_run_id=self.run_id,
             )
         finally:
             session.close()

@@ -9,6 +9,7 @@ from sqlalchemy.pool import StaticPool
 from app.database import Base
 from app.models.communication_port import CommunicationPort
 from app.models.device_controller import DeviceController
+from app.models.fault import Fault
 from app.models.fuel_type import FuelType
 from app.models.nozzle import Nozzle
 from app.models.operations import Attendant, AttendantShiftAssignment, Shift
@@ -16,6 +17,8 @@ from app.models.pump import Pump
 from app.models.station import Station
 from app.models.tank import Tank
 from app.models.tank_probe import TankProbe
+from app.models.user import User
+from app.utils.enums import FaultStatus, UserRole
 from scripts import seed_demo
 
 
@@ -185,6 +188,8 @@ def test_operations_demo_seed_is_idempotent_in_a_real_database(monkeypatch) -> N
         Pump.__table__,
         TankProbe.__table__,
         Nozzle.__table__,
+        User.__table__,
+        Fault.__table__,
         Attendant.__table__,
         Shift.__table__,
         AttendantShiftAssignment.__table__,
@@ -201,6 +206,7 @@ def test_operations_demo_seed_is_idempotent_in_a_real_database(monkeypatch) -> N
             address="Demo test address",
         )
     )
+    session.add(User(username="demo-operator", password_hash="x", full_name="Demo Operator", role=UserRole.OPERATOR))
     session.commit()
     monkeypatch.setattr(seed_demo, "_seed_commercial_demo", lambda *_: None)
     try:
@@ -214,6 +220,9 @@ def test_operations_demo_seed_is_idempotent_in_a_real_database(monkeypatch) -> N
             session.scalar(select(func.count(model.id)))
             for model in (Attendant, Shift, AttendantShiftAssignment)
         )
+        fault_count = session.scalar(select(func.count(Fault.id)))
+        fault_statuses = set(session.scalars(select(Fault.status)))
+        resolved = session.scalar(select(Fault).where(Fault.status == FaultStatus.RESOLVED))
     finally:
         session.close()
         Base.metadata.drop_all(engine, tables=list(reversed(tables)))
@@ -223,3 +232,9 @@ def test_operations_demo_seed_is_idempotent_in_a_real_database(monkeypatch) -> N
     assert first["attendants"] == second["attendants"] == 6
     assert first["shifts"] == second["shifts"] == 3
     assert first["attendant_shift_assignments"] == second["attendant_shift_assignments"] == 6
+    assert fault_count == 3
+    assert fault_statuses == {FaultStatus.OPEN, FaultStatus.INVESTIGATING, FaultStatus.RESOLVED}
+    assert resolved is not None
+    assert resolved.resolution_note is not None
+    assert resolved.resolved_at is not None
+    assert resolved.resolved_by is not None

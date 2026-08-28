@@ -68,13 +68,27 @@ public sealed partial class SimulatorViewModel : ObservableObject
     public string StartAvailabilityMessage => ActiveRun is null ? string.Empty : $"Önce aktif run {ActiveRun.Id}'u durdurun.";
 
     [RelayCommand(CanExecute = nameof(CanCreateSimulation))]
-    private Task CreateSimulationAsync() => ExecuteAsync("Simülasyon oluşturulamadı.", () =>
-        _apiClient.PostAsync<CreateSimulationRequestDto, SimulationRunDto>("simulations", new CreateSimulationRequestDto
+    private async Task CreateSimulationAsync()
+    {
+        LastError = null; IsBusy = true;
+        try
         {
-            StationId = StationId, Mode = "REALTIME", SimulationStartTime = DateTimeOffset.Now,
-            TickIntervalMilliseconds = TickIntervalMilliseconds, SimulationStepSeconds = SimulationStepSeconds,
-            SpeedMultiplier = SpeedMultiplier, RandomSeed = RandomSeed, PersistEveryNTicks = PersistEveryNTicks,
-        }));
+            CurrentRun = await _apiClient.PostAsync<CreateSimulationRequestDto, SimulationRunDto>("simulations/start-new", new CreateSimulationRequestDto
+            {
+                StationId = StationId, Mode = "REALTIME", SimulationStartTime = DateTimeOffset.Now,
+                TickIntervalMilliseconds = TickIntervalMilliseconds, SimulationStepSeconds = SimulationStepSeconds,
+                SpeedMultiplier = SpeedMultiplier, RandomSeed = RandomSeed, PersistEveryNTicks = PersistEveryNTicks,
+            });
+            _liveDataStore.BeginSimulationRun(CurrentRun.StationId, CurrentRun.Id);
+            await SelectStationAndConnectLiveAsync(CurrentRun.StationId);
+            await RefreshActiveRunCoreAsync();
+        }
+        catch (ApiException exception) { LastError = GetUserMessage(exception, "Yeni simülasyon başlatılamadı."); }
+        catch (HttpRequestException) { LastError = "Sunucuya ulaşılamadı."; }
+        catch (WebSocketException) { LastError = "Canlı istasyon bağlantısı kurulamadı."; }
+        catch (TaskCanceledException) { LastError = "İstek zaman aşımına uğradı."; }
+        finally { IsBusy = false; }
+    }
 
     [RelayCommand(CanExecute = nameof(CanPrepareDemoStock))]
     private async Task PrepareDemoStockAsync()

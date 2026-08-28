@@ -32,9 +32,13 @@ from app.models.commercial import (
     Vehicle,
 )
 from app.models.delivery import Delivery
+from app.models.communication_port import CommunicationPort
+from app.models.device_controller import DeviceController
+from app.models.fault import Fault
 from app.models.nozzle import Nozzle
 from app.models.pump import Pump
 from app.models.sale import Sale
+from app.models.user import User
 from app.schemas.delivery import DeliveryCreate
 from app.schemas.sale import CommercialSaleRequest
 from app.services.commercial_sale_service import CommercialSaleService
@@ -53,6 +57,10 @@ from app.utils.enums import (
     CardLimitType,
     CustomerType,
     DriverAssignmentStatus,
+    FaultCode,
+    FaultStatus,
+    FaultTargetType,
+    FaultType,
     PaymentType,
     SensorStatus,
 )
@@ -60,6 +68,7 @@ from app.utils.datetime_utils import utc_now
 
 _DEMO_STATION_CODE = "KONYA_TEST"
 _DEMO_CONTROLLER_CODE = "USC-01"
+_DEMO_SIMULATION_CARD_BALANCE = Decimal("250000")
 _FUELS = (
     ("Motorin", "DIESEL"),
     ("Benzin", "GASOLINE"),
@@ -148,6 +157,7 @@ def seed_konya_simulation_demo(db: Session) -> dict[str, int]:
             nozzles=nozzles,
         )
         if hasattr(db, "scalar"):
+            _seed_fault_lifecycle_demo(db, station.id)
             _seed_commercial_demo(db, station.id, fuel_by_code)
             _seed_operations_demo(db, station.id)
         db.commit()
@@ -341,7 +351,7 @@ def _seed_commercial_demo(db: Session, station_id: int, fuel_by_code: dict[str, 
     lpg.is_active = True
     lpg.valid_from = date(2020, 1, 1)
     lpg.valid_until = None
-    lpg.prepaid_balance = max(Decimal(lpg.prepaid_balance), Decimal("100000"))
+    lpg.prepaid_balance = max(Decimal(lpg.prepaid_balance), _DEMO_SIMULATION_CARD_BALANCE)
     lpg.credit_limit = Decimal("0")
     lpg.credit_used = Decimal("0")
     for card in (prepaid, credit, lpg):
@@ -378,12 +388,12 @@ def _restore_demo_commercial_state(customer, fleet, group, prepaid_vehicle, cred
         card.valid_until = None
         card.payment_type = payment_type
         if payment_type == PaymentType.PREPAID:
-            card.prepaid_balance = max(Decimal(card.prepaid_balance), Decimal("100000"))
+            card.prepaid_balance = max(Decimal(card.prepaid_balance), _DEMO_SIMULATION_CARD_BALANCE)
             card.credit_limit = Decimal("0")
             card.credit_used = Decimal("0")
         else:
             card.prepaid_balance = Decimal("0")
-            card.credit_limit = max(Decimal(card.credit_limit), Decimal("100000"))
+            card.credit_limit = max(Decimal(card.credit_limit), _DEMO_SIMULATION_CARD_BALANCE)
             card.credit_used = Decimal("0")
 
 
@@ -535,8 +545,8 @@ def _get_or_create_demo_card(
             status=CardStatus.ACTIVE,
             valid_from=date(2020, 1, 1),
             payment_type=payment_type,
-            prepaid_balance=Decimal("100000") if payment_type == PaymentType.PREPAID else Decimal("0"),
-            credit_limit=Decimal("100000") if payment_type == PaymentType.CREDIT else Decimal("0"),
+            prepaid_balance=_DEMO_SIMULATION_CARD_BALANCE if payment_type == PaymentType.PREPAID else Decimal("0"),
+            credit_limit=_DEMO_SIMULATION_CARD_BALANCE if payment_type == PaymentType.CREDIT else Decimal("0"),
             credit_used=Decimal("0"),
             is_active=True,
         )
@@ -701,6 +711,81 @@ def _get_or_create_port(
             "is_active": True,
         }
     )
+
+
+def _seed_fault_lifecycle_demo(db: Session, station_id: int) -> None:
+    """Create one durable example for every fault lifecycle state.
+
+    The marker is the stable Turkish title, so repeated demo seeds keep user-created
+    faults untouched while preserving an actionable example in the desktop screen.
+    """
+
+    controller = db.scalar(
+        select(DeviceController).where(
+            DeviceController.station_id == station_id,
+            DeviceController.code == _DEMO_CONTROLLER_CODE,
+        )
+    )
+    port = db.scalar(
+        select(CommunicationPort)
+        .join(DeviceController)
+        .where(
+            DeviceController.station_id == station_id,
+            CommunicationPort.port_number == 1,
+        )
+    )
+    pump = db.scalar(
+        select(Pump).where(
+            Pump.station_id == station_id,
+            Pump.code == "PUMP_DIESEL_01",
+        )
+    )
+    if controller is None or port is None or pump is None:
+        raise BusinessRuleError("Demo fault targets were not created.")
+
+    resolver = db.scalar(select(User).where(User.is_active.is_(True)).order_by(User.id))
+    now = utc_now()
+    examples = (
+        (
+            "Demo: Pompa bağlantısı kontrolü", FaultStatus.OPEN,
+            FaultTargetType.PUMP, pump.id, FaultType.CONNECTION,
+            FaultCode.PUMP_NOT_CONNECTED, "Pompa iletişimi kesildi; bağlantı kontrolü bekliyor.",
+            None, None, None,
+        ),
+        (
+            "Demo: Port haberleşmesi inceleniyor", FaultStatus.INVESTIGATING,
+            FaultTargetType.PORT, port.id, FaultType.COMMUNICATION,
+            FaultCode.PORT_COMMUNICATION_ERROR, "Port iletişim hatası teknik ekip tarafından inceleniyor.",
+            None, None, None,
+        ),
+        (
+            "Demo: USC başlatma hatası çözüldü", FaultStatus.RESOLVED,
+            FaultTargetType.CONTROLLER, controller.id, FaultType.INITIALIZATION,
+            FaultCode.USC_INITIALIZATION_ERROR, "Kontrolör yeniden başlatıldı ve bağlantı doğrulandı.",
+            now - timedelta(hours=1),
+            "Kontrolör yeniden başlatıldı; normal iletişim doğrulandı.",
+            resolver.id if resolver else None,
+        ),
+    )
+    for title, status, target_type, target_id, fault_type, fault_code, description, resolved_at, note, resolved_by in examples:
+        if db.scalar(select(Fault.id).where(Fault.station_id == station_id, Fault.title == title)) is not None:
+            continue
+        db.add(Fault(
+            station_id=station_id,
+            target_type=target_type,
+            target_id=target_id,
+            fault_type=fault_type,
+            fault_code=fault_code,
+            title=title,
+            description=description,
+            cause="Demo yaşam döngüsü kaydı",
+            status=status,
+            started_at=now - timedelta(hours=3),
+            detected_at=now - timedelta(hours=2),
+            resolved_at=resolved_at,
+            resolution_note=note,
+            resolved_by=resolved_by,
+        ))
 
 
 def _seed_demo_transactions(db: Session) -> None:

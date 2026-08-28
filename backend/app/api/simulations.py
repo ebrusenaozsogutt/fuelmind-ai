@@ -151,6 +151,52 @@ def create_simulation(
         raise
 
 
+@router.post("/start-new", response_model=SimulationRunRead, status_code=status.HTTP_201_CREATED)
+async def start_new_simulation(
+    payload: SimulationRunCreate,
+    db: Annotated[Session, Depends(get_db)],
+    manager: Annotated[SimulationManager, Depends(get_simulation_manager)],
+    current_user: Annotated[User, Depends(require_admin)],
+) -> object:
+    """Stop the active station run, then create and start an isolated new run.
+
+    This is intentionally distinct from ``/{run_id}/resume``: a new row has
+    fresh counters and a fresh clock, while resume retains the existing row.
+    """
+
+    if payload.mode != SimulationMode.REALTIME:
+        raise BusinessRuleError("Start new is available only for REALTIME simulations.")
+    station = StationRepository(db).get(payload.station_id)
+    if station is None:
+        raise NotFoundError("Station not found.")
+    if not station.is_active:
+        raise BusinessRuleError("Cannot create a simulation for an inactive station.")
+
+    await manager.stop_active_realtime_run(payload.station_id)
+    values = payload.model_dump()
+    values.update(
+        {
+            "status": SimulationStatus.CREATED,
+            "current_simulation_time": payload.simulation_start_time,
+            "sequence_number": 0,
+            "generated_sensor_count": 0,
+            "generated_sale_count": 0,
+            "generated_delivery_count": 0,
+            "created_by": current_user.id,
+        }
+    )
+    try:
+        run = SimulationRunRepository(db).create(values)
+        db.commit()
+        run_id = run.id
+    except Exception:
+        db.rollback()
+        raise
+    await manager.start_run(run_id)
+    db.expire_all()
+    return _get_run(db, run_id)
+
+
 @router.post(
     "/datasets/generate", response_model=SimulationRunRead, status_code=status.HTTP_201_CREATED
 )

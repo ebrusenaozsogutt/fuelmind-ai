@@ -17,16 +17,21 @@ class DashboardService:
     def __init__(self, db: Session) -> None:
         self.db = db
 
-    def summary(self, station_id: int) -> dict[str, int | float | str | None]:
+    def summary(
+        self, station_id: int, *, simulation_run_id: int | None = None
+    ) -> dict[str, int | float | str | None]:
         if StationRepository(self.db).get(station_id) is None:
             raise NotFoundError("Station not found.")
         now = utc_now()
         today_start = datetime.combine(now.date(), time.min, tzinfo=now.tzinfo)
-        daily_sales = self.db.scalar(
-            select(func.coalesce(func.sum(Sale.quantity_liters), 0)).where(
-                Sale.station_id == station_id, Sale.sale_timestamp >= today_start
-            )
+        sales_statement = select(func.coalesce(func.sum(Sale.quantity_liters), 0)).where(
+            Sale.station_id == station_id, Sale.sale_timestamp >= today_start
         )
+        if simulation_run_id is not None:
+            sales_statement = sales_statement.where(
+                Sale.simulation_run_id == simulation_run_id
+            )
+        daily_sales = self.db.scalar(sales_statement)
         active_statuses = (AlarmStatus.NEW, AlarmStatus.ACKNOWLEDGED, AlarmStatus.INVESTIGATING)
         active = list(self.db.scalars(select(Alarm).where(Alarm.station_id == station_id, Alarm.status.in_(active_statuses))))
         risky_targets = {

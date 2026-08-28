@@ -56,9 +56,17 @@ public sealed partial class DashboardViewModel : ObservableObject
     public string ConnectionStatusLabel => _liveDataStore.ConnectionState == LiveConnectionState.Connected
         ? "CANLI"
         : "BAĞLANTI";
-    public string AverageTankFill => _liveDataStore.Tanks.Count == 0
-        ? "Veri yok"
-        : $"%{_liveDataStore.Tanks.Where(t => t.CapacityLiters > 0).Select(t => t.MeasuredLevelLiters / t.CapacityLiters * 100m).DefaultIfEmpty().Average():N0}";
+    public string AverageTankFill
+    {
+        get
+        {
+            var tanks = _liveDataStore.Tanks.Where(t => t.CapacityLiters > 0).ToArray();
+            if (tanks.Length == 0) return "Veri yok";
+            var percentage = tanks.Sum(tank => tank.MeasuredLevelLiters) /
+                tanks.Sum(tank => tank.CapacityLiters) * 100m;
+            return $"%{percentage:N0}";
+        }
+    }
 
     public async Task RefreshSummaryAsync()
     {

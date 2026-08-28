@@ -23,6 +23,7 @@ from app.simulation.clock import SimulationClock
 from app.simulation.config import SimulationConfig
 from app.simulation.delivery_generator import DeliveryGenerator
 from app.simulation.demand_profile import DemandProfile
+from app.simulation.initial_state import initial_tank_level_liters
 from app.simulation.pump_generator import PumpGenerator
 from app.simulation.random_source import RandomSource
 from app.simulation.runner import SimulationRunner
@@ -41,7 +42,7 @@ from app.simulation.validators import SimulationValidator
 from app.services.commercial_sale_service import CommercialSaleService
 from app.services.fuel_price_service import FuelPriceService
 from app.services.operations_selection_service import OperationsSelectionService
-from app.utils.enums import SimulationMode
+from app.utils.enums import SimulationMode, SimulationStatus
 
 if TYPE_CHECKING:
     from app.live.event_broker import LiveEventBroker
@@ -223,10 +224,31 @@ def _build_station_state(
         station_id=run.station_id,
         sequence_number=run.sequence_number,
     )
+    # Start New creates a zeroed CREATED run.  It must not use the mutable tank
+    # level which TickPersistence wrote for the preceding run.  Any non-new run
+    # deliberately retains its persisted level for recovery/rebuild semantics.
+    is_new_runtime = (
+        run.mode == SimulationMode.REALTIME
+        and run.status == SimulationStatus.CREATED
+        and run.sequence_number == 0
+        and run.generated_sensor_count == 0
+        and run.generated_sale_count == 0
+        and run.generated_delivery_count == 0
+    )
     fuel_codes: dict[int, str] = {}
     for tank in tanks:
         code = tank.fuel_type.code
         fuel_codes[tank.fuel_type_id] = code
+        level = (
+            initial_tank_level_liters(
+                capacity_liters=float(tank.capacity_liters),
+                fuel_code=code,
+                random_seed=run.random_seed,
+                tank_id=tank.id,
+            )
+            if is_new_runtime
+            else float(tank.current_level_liters)
+        )
         state.add_tank(
             TankState(
                 tank_id=tank.id,
@@ -234,8 +256,8 @@ def _build_station_state(
                 fuel_type_id=tank.fuel_type_id,
                 code=tank.code,
                 capacity_liters=float(tank.capacity_liters),
-                true_level_liters=float(tank.current_level_liters),
-                measured_level_liters=float(tank.current_level_liters),
+                true_level_liters=level,
+                measured_level_liters=level,
                 minimum_safe_level=float(tank.minimum_safe_level),
                 critical_level=float(tank.critical_level),
                 temperature=float(tank.temperature or 0),

@@ -3,6 +3,7 @@ using FuelMind.Desktop.Dtos.Live;
 using FuelMind.Desktop.Dtos.Stations;
 using FuelMind.Desktop.Services;
 using FuelMind.Desktop.ViewModels;
+using System.Net;
 using Xunit;
 
 namespace FuelMind.Desktop.Tests;
@@ -39,6 +40,7 @@ public sealed class FaultsViewModelTests
         Assert.False(viewModel.InvestigateCommand.CanExecute(null));
         Assert.False(viewModel.ResolveCommand.CanExecute(null));
         Assert.False(viewModel.IsResolutionNoteEditable);
+        Assert.Equal("Bu arıza daha önce çözüldüğü için durumu değiştirilemez.", viewModel.ResolutionNoteHelpText);
         Assert.Contains("çözüldü", viewModel.SuccessMessage);
     }
 
@@ -60,10 +62,26 @@ public sealed class FaultsViewModelTests
         Assert.Null(viewModel.SelectedFault?.ResolutionNote);
     }
 
+    [Fact]
+    public async Task ResolveFailureIsShownToTheUserAndKeepsTheFaultEditable()
+    {
+        var service = new FakeFaultService { ThrowOnResolve = true };
+        var viewModel = new FaultsViewModel(service, new FakeStationService());
+
+        await viewModel.LoadAsync();
+        viewModel.NewResolutionNote = "Kablo kontrol edildi.";
+        await viewModel.ResolveCommand.ExecuteAsync(null);
+
+        Assert.Equal("OPEN", viewModel.SelectedFault?.Status);
+        Assert.True(viewModel.IsResolutionNoteEditable);
+        Assert.Equal("Sunucuya ulaşılamadı.", viewModel.ErrorMessage);
+    }
+
     private sealed class FakeFaultService : IFaultService
     {
         private FaultDto _fault = OpenFault();
         public string? LastResolutionNote { get; private set; }
+        public bool ThrowOnResolve { get; init; }
 
         public Task<IReadOnlyList<FaultDto>> ListAsync(string query, CancellationToken ct = default) =>
             Task.FromResult<IReadOnlyList<FaultDto>>(query.Contains("status=OPEN", StringComparison.Ordinal) && _fault.Status != "OPEN" ? [] : [_fault]);
@@ -79,6 +97,8 @@ public sealed class FaultsViewModelTests
 
         public Task<FaultDto> ResolveAsync(int id, string note, CancellationToken ct = default)
         {
+            if (ThrowOnResolve)
+                throw new ApiException(HttpStatusCode.BadGateway, "UPSTREAM_UNAVAILABLE", "Sunucuya ulaşılamadı.");
             LastResolutionNote = note;
             _fault = Copy("RESOLVED", note);
             return Task.FromResult(_fault);

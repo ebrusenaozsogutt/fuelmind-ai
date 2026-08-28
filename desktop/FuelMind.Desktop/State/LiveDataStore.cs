@@ -28,6 +28,7 @@ public sealed partial class LiveDataStore : ObservableObject
     [ObservableProperty] private SimulationTickDto? _lastSimulationTick;
     [ObservableProperty] private int? _lastSequence;
     [ObservableProperty] private int? _lastSimulationRunId;
+    [ObservableProperty] private int? _expectedSimulationRunId;
     [ObservableProperty] private bool _hasSequenceGap;
     [ObservableProperty] private int? _expectedSequence;
     [ObservableProperty] private int? _receivedSequence;
@@ -39,7 +40,23 @@ public sealed partial class LiveDataStore : ObservableObject
     public ObservableCollection<NozzleLiveDto> Nozzles { get; } = [];
     public ObservableCollection<LiveAnomalyResultDto> AiResults { get; } = [];
     public event EventHandler? TopologyChanged;
-    public void Clear() => Dispatch(() => { LastMessageAt = null; LastSimulationTick = null; LastSequence = null; LastSimulationRunId = null; HasSequenceGap = false; ExpectedSequence = null; ReceivedSequence = null; ConnectedStationId = null; Tanks.Clear(); Pumps.Clear(); Controllers.Clear(); Ports.Clear(); Probes.Clear(); Nozzles.Clear(); AiResults.Clear(); _liveChartDataService?.Clear(); TopologyChanged?.Invoke(this, EventArgs.Empty); });
+    public void Clear() => Dispatch(() => { LastMessageAt = null; LastSimulationTick = null; LastSequence = null; LastSimulationRunId = null; ExpectedSimulationRunId = null; HasSequenceGap = false; ExpectedSequence = null; ReceivedSequence = null; ConnectedStationId = null; Tanks.Clear(); Pumps.Clear(); Controllers.Clear(); Ports.Clear(); Probes.Clear(); Nozzles.Clear(); AiResults.Clear(); _liveChartDataService?.Clear(); TopologyChanged?.Invoke(this, EventArgs.Empty); });
+    public void BeginSimulationRun(int stationId, int runId) => Dispatch(() =>
+    {
+        SelectedStationId = stationId;
+        ConnectedStationId = stationId;
+        ExpectedSimulationRunId = runId;
+        LastSimulationRunId = runId;
+        LastMessageAt = null;
+        LastSimulationTick = null;
+        LastSequence = null;
+        HasSequenceGap = false;
+        ExpectedSequence = null;
+        ReceivedSequence = null;
+        Tanks.Clear(); Pumps.Clear(); Controllers.Clear(); Ports.Clear(); Probes.Clear(); Nozzles.Clear(); AiResults.Clear();
+        _liveChartDataService?.ResetForSimulationRun(runId);
+        TopologyChanged?.Invoke(this, EventArgs.Empty);
+    });
     public void UpdateConnectionState(LiveConnectionState state) => Dispatch(() => ConnectionState = state);
     public void ApplyConnectionReady(ConnectionReadyDto ready) => Dispatch(() => { ConnectedStationId = ready.StationId; LastMessageAt = DateTimeOffset.UtcNow; });
     public void ApplySimulationTick(SimulationTickDto tick) => Dispatch(() => Apply(new LiveMessageParseResult("simulation_tick", tick, null, false)));
@@ -58,6 +75,7 @@ public sealed partial class LiveDataStore : ObservableObject
         {
             case ConnectionReadyDto ready: ConnectedStationId = ready.StationId; break;
             case SimulationTickDto tick:
+                if (ExpectedSimulationRunId is int expectedRunId && tick.SimulationRunId != expectedRunId) return;
                 if (LastSimulationRunId != tick.SimulationRunId) { LastSimulationRunId = tick.SimulationRunId; LastSequence = null; HasSequenceGap = false; ExpectedSequence = null; ReceivedSequence = null; _liveChartDataService?.ResetForSimulationRun(tick.SimulationRunId); }
                 if (LastSequence is int previous)
                 {

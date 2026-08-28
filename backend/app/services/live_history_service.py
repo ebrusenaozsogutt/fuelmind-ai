@@ -33,14 +33,28 @@ class LiveHistoryService:
             raise NotFoundError("Pump not found.")
         return self.readings.history(pump_id=pump_id, **filters)  # type: ignore[arg-type]
 
-    def status(self, station_id: int):
+    def status(self, station_id: int, *, simulation_run_id: int | None = None):
+        """Return a station snapshot scoped to the manager-owned live run.
+
+        Sensor history deliberately remains cross-run for reporting and
+        investigation.  A live dashboard, however, must never combine the
+        sequence 1 of a new run with the final readings of an older run.
+        """
         self._station(station_id)
-        items = self.readings.history(station_id=station_id, from_time=datetime.min.replace(tzinfo=utc_now().tzinfo), to_time=utc_now(), limit=5000)
+        items = self.readings.history(
+            station_id=station_id,
+            simulation_run_id=simulation_run_id,
+            from_time=datetime.min.replace(tzinfo=utc_now().tzinfo),
+            to_time=utc_now(),
+            limit=5000,
+        )
         tanks = {item.tank_id: item for item in items if item.tank_id is not None}
         pumps = {item.pump_id: item for item in items if item.pump_id is not None}
         latest = items[-1] if items else None
         topology = LiveTopologyService(self.db).snapshot(
-            station_id, include_latest_probe_readings=True
+            station_id,
+            include_latest_probe_readings=True,
+            simulation_run_id=simulation_run_id,
         )
         return {
             "station_id": station_id,

@@ -51,3 +51,18 @@ async def test_sequence_drops_duplicate_and_out_of_order_but_keeps_gap_and_new_r
     await broker.publish_simulation_tick(2, SimulationTickResult(2, moment, 1))
 
     assert [payload["sequence"] for _, payload in manager.calls] == [10, 13, 1]
+
+
+@pytest.mark.asyncio
+async def test_new_run_first_websocket_tick_has_its_own_run_id_and_sequence() -> None:
+    """A new run's sequence one is never rejected as an old run duplicate."""
+
+    manager = FakeConnectionManager()
+    broker = LiveEventBroker(manager)  # type: ignore[arg-type]
+    moment = datetime(2026, 8, 1, tzinfo=timezone.utc)
+
+    await broker.publish_simulation_tick(41, SimulationTickResult(2, moment, 10))
+    await broker.publish_simulation_tick(42, SimulationTickResult(2, moment, 1))
+
+    assert manager.calls[-1][1]["simulation_run_id"] == 42
+    assert manager.calls[-1][1]["sequence"] == 1

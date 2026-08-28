@@ -8,6 +8,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from sqlalchemy import inspect, select
 from sqlalchemy.orm import Session
 
+from app.exceptions import BusinessRuleError
 from app.models.delivery import Delivery
 from app.models.nozzle import Nozzle
 from app.models.probe_reading import ProbeReading
@@ -19,7 +20,7 @@ from app.repositories.simulation_run_repository import SimulationRunRepository
 from app.repositories.tank_repository import TankRepository
 from app.repositories.sensor_reading_repository import SensorReadingRepository
 from app.simulation.state import ActiveSaleState
-from app.simulation.tick_result import SimulationTickResult
+from app.simulation.tick_result import SimulationTickEvent, SimulationTickResult
 from app.utils.enums import SourceType
 from app.services.data_quality_service import DataQualityService
 from app.services.alarm_engine import AlarmEngine
@@ -310,16 +311,34 @@ class TickPersistence:
                 start_totalizer = totalizers[nozzle_id]
                 end_totalizer = start_totalizer + quantity
                 totalizers[nozzle_id] = end_totalizer
-            sales.append(
-                self._sale(
-                    run,
-                    completed,
-                    final_levels,
-                    delivery_levels,
-                    start_totalizer=start_totalizer,
-                    end_totalizer=end_totalizer,
+            try:
+                sales.append(
+                    self._sale(
+                        run,
+                        completed,
+                        final_levels,
+                        delivery_levels,
+                        start_totalizer=start_totalizer,
+                        end_totalizer=end_totalizer,
+                    )
                 )
-            )
+            except BusinessRuleError as exc:
+                # A card may have been selected by another concurrent sale
+                # between simulation-sale start and settlement.  That is a
+                # normal business rejection, not a runner failure.  Preserve
+                # the tick and its physical observations, but never persist a
+                # successful Sale or charge the rejected card.
+                result.events.append(
+                    SimulationTickEvent(
+                        "SALE_PAYMENT_REJECTED",
+                        result.station_id,
+                        result.simulation_time,
+                        "PUMP",
+                        completed.pump_id,
+                        {"sale_id": completed.sale_id, "reason": str(exc)},
+                    )
+                )
+                continue
         return sales
 
     def _sale(

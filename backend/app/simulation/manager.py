@@ -148,6 +148,14 @@ class SimulationManager:
         await runner.stop()
         await task
 
+    async def stop_active_realtime_run(self, station_id: int) -> int | None:
+        """Finalize the manager-owned run before a station starts a new one."""
+
+        run_id = self.active_run_id_for_station(station_id)
+        if run_id is not None:
+            await self.stop_run(run_id)
+        return run_id
+
     def get_runner(self, run_id: int) -> SimulationRunner | None:
         """Return an in-process runner without creating or loading one."""
 
